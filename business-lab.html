@@ -1,51 +1,10 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>J.A.R.V.I.S. | AI BUSINESS LAB</title>
-<style>
-:root{color-scheme:dark;--bg:#030814;--panel:#0a1c31;--line:#24506c;--cyan:#57eaff;--text:#e6f8ff;--muted:#94b0c8}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0%,#102d4e,var(--bg) 65%);color:var(--text);font:15px/1.6 system-ui,"Noto Sans JP",sans-serif}header,main{max-width:1100px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid var(--line)}h1{font-size:22px;letter-spacing:.12em;margin:0;color:var(--cyan)}h2{font-size:17px;margin:0 0 14px}small,.muted{color:var(--muted)}.pill{border:1px solid var(--line);border-radius:30px;padding:5px 12px;font-size:12px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.panel{background:rgba(10,28,49,.92);border:1px solid var(--line);border-radius:15px;padding:20px;margin:16px 0}.wide{grid-column:1/-1}label{display:block;margin:12px 0 5px;color:#b9d8e8;font-size:13px}input,select,textarea{width:100%;background:#061323;border:1px solid #32617d;border-radius:8px;padding:11px;color:white;font:inherit}textarea{min-height:130px;resize:vertical}button,a.btn{border:1px solid #4dc5e8;background:#123d59;color:#e6f8ff;border-radius:9px;padding:10px 14px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}button.primary{background:#147ca6;color:white;font-weight:700}button:disabled{opacity:.5;cursor:wait}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:13px}.status{font-size:13px;color:#a4d6e8;min-height:23px}.output{white-space:pre-wrap;overflow-wrap:anywhere;background:#051321;border:1px solid #21465f;border-radius:10px;padding:15px;min-height:190px;max-height:540px;overflow:auto}.steps{display:flex;flex-wrap:wrap;gap:9px}.step{border:1px solid var(--line);border-radius:10px;padding:10px 13px;color:#b8d2e5;font-size:13px}.warning{color:#ffd28c}.orb{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#e8ffff,#57eaff 20%,#0866be 55%,#030814 78%);box-shadow:0 0 25px #168cff80;flex:none}ul{padding-left:20px}li{margin:8px 0}a{color:#7de6ff}@media(max-width:760px){.grid{grid-template-columns:1fr}header{align-items:flex-start}h1{font-size:18px}}
-</style></head><body>
-<header><div style="display:flex;align-items:center;gap:14px"><div class="orb" aria-hidden="true"></div><div><h1>J.A.R.V.I.S.</h1><small>AI BUSINESS COMMAND CENTER / DEVELOPMENT PREVIEW</small></div></div><span class="pill">開発版・未公開</span></header>
-<main><section class="panel"><h2>副業オペレーション</h2><div class="steps"><span class="step">01 調査</span><span class="step">02 原稿生成</span><span class="step">03 人による確認</span><span class="step">04 投稿</span><span class="step">05 成果分析</span></div><p class="muted">現在は調査・原稿生成の試験機能です。投稿・収益取得・24時間自動運用はまだ接続していません。</p></section>
-<div class="grid"><section class="panel"><h2>01 / リサーチと制作指令</h2><label for="goal">目的</label><select id="goal"><option value="note記事">note記事</option><option value="アフィリエイト比較記事">アフィリエイト比較記事</option><option value="X投稿">X投稿</option><option value="Instagram投稿">Instagram投稿</option><option value="TikTok台本">TikTok台本</option></select><label for="topic">テーマ</label><input id="topic" value="初心者向けのAI活用・副業" maxlength="160"><label for="audience">対象読者</label><input id="audience" value="AIを使い始めた副業初心者" maxlength="160"><label for="notes">追加条件</label><textarea id="notes" placeholder="紹介したいサービス、読者の悩み、注意点など"></textarea><div class="actions"><button class="primary" id="generate">AIで原稿を生成</button><button id="save">下書きを端末に保存</button></div><p class="status" id="status" role="status"></p></section>
-<section class="panel"><h2>02 / AI生成結果（要確認）</h2><div class="output" id="output" aria-live="polite">ここに生成結果が表示されます。AIの出力は公開前に必ず確認してください。</div><div class="actions"><button id="copy">原稿をコピー</button><button id="approve">確認済みにする</button></div><p class="muted">外部公開・購入・API課金設定の変更は行いません。アフィリエイト表記、公式情報、価格・報酬条件を確認してください。</p></section>
-<section class="panel wide"><h2>03 / クラウド記事生成（開発・接続テスト用）</h2><p class="muted">Cloudflare D1テーブル作成後に利用できます。実行するたびClaude API料金が発生します。自動実行はまだ有効ではありません。</p><div class="actions"><button id="cloud-generate">クラウドで記事を1件生成</button><button id="cloud-refresh">保存済みの記事を取得</button></div><p id="cloud-status" class="status" role="status"></p><ul id="cloud-jobs"></ul></section>
-<section class="panel wide"><h2>04 / 保存した下書き</h2><p class="muted">この端末のブラウザに保存します。他の端末とは同期されません。ブラウザのデータ削除で消える可能性があります。</p><ul id="drafts"></ul></section>
-</div><p class="warning">開発版です。現在の公開用 J.A.R.V.I.S. は変更していません。APIの使用にはCloudflare側の認証設定と残高が必要です。</p></main>
-<script>
-"use strict";
-const $=id=>document.getElementById(id);
-const storeKey="jarvis_business_drafts_v1";
-let current="",approved=false;
-function status(s){$("status").textContent=s}
-function readDrafts(){try{return JSON.parse(localStorage.getItem(storeKey)||"[]")}catch{return []}}
-function render(){const root=$("drafts");root.replaceChildren();const items=readDrafts();if(!items.length){const li=document.createElement("li");li.textContent="まだ下書きはありません。";root.append(li);return}items.forEach((d,i)=>{const li=document.createElement("li"),b=document.createElement("button");b.textContent="開く";b.addEventListener("click",()=>{current=d.text;approved=!!d.approved;$("output").textContent=current;status("保存した下書きを開きました"+(approved?"（確認済み）":"（未確認）"))});li.append(document.createTextNode(d.date+" / "+d.goal+" / "+d.topic+" "+(d.approved?"【確認済み】":"【未確認】")+" "),b);root.append(li)})}
-$("generate").addEventListener("click",async()=>{const topic=$("topic").value.trim();if(!topic){status("テーマを入力してください");return}let password=localStorage.getItem("jarvis_access_password");if(!password){password=prompt("J.A.R.V.I.S.のアクセス用パスワード");if(!password)return;localStorage.setItem("jarvis_access_password",password)}const button=$("generate");button.disabled=true;status("AIが原稿を作成中です...");try{const promptText=["あなたはJ.A.R.V.I.S.のAI副業コンテンツ担当です。日本語で、実用的かつ誠実な原稿を作成してください。","制作物："+$("goal").value,"テーマ："+topic,"対象読者："+$("audience").value,"追加条件："+$("notes").value,"構成：読者の悩み、見出し、本文、行動喚起、要検証事項、情報源候補。","最新の価格、報酬、商品仕様、実績を未検証のまま断定しない。架空の体験談や収益保証を作らない。アフィリエイト広告の場合はPR・広告表記を含める。投稿は行わず下書きのみ作成する。"].join("\n");const response=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json","x-jarvis-password":password},body:JSON.stringify({prompt:promptText})});const data=await response.json();if(response.status===401)localStorage.removeItem("jarvis_access_password");if(!response.ok)throw new Error(data.error||"AI通信エラー");current=String(data.answer||"");approved=false;$("output").textContent=current||"空の応答でした";status("下書きが完成しました。公開前に内容を確認してください。")}catch(e){status("生成できませんでした："+e.message)}finally{button.disabled=false}});
-$("save").addEventListener("click",()=>{if(!current){status("先に原稿を生成してください");return}const items=readDrafts();items.unshift({date:new Date().toLocaleString("ja-JP"),goal:$("goal").value,topic:$("topic").value,text:current,approved});try{localStorage.setItem(storeKey,JSON.stringify(items.slice(0,30)));status("この端末に下書きを保存しました");render()}catch{status("保存できませんでした。ブラウザの保存容量をご確認ください。")}});
-$("copy").addEventListener("click",async()=>{if(!current)return;try{await navigator.clipboard.writeText(current);status("コピーしました")}catch{status("コピーできませんでした。テキストを選択してコピーしてください。")}});
-$("approve").addEventListener("click",()=>{if(!current)return;approved=true;status("確認済みとしてマークしました。自動投稿はされません。保存ボタンで状態を保存できます。")});
-async function cloudRequest(method,body){
- let password=localStorage.getItem("jarvis_access_password");
- if(!password){password=prompt("J.A.R.V.I.S.のアクセス用パスワード");if(!password)throw new Error("認証が必要です");localStorage.setItem("jarvis_access_password",password)}
- const response=await fetch("/api/business/jobs",{method,headers:{"Content-Type":"application/json","x-jarvis-password":password},...(body?{body:JSON.stringify(body)}:{})});
- const data=await response.json();
- if(response.status===401)localStorage.removeItem("jarvis_access_password");
- if(!response.ok)throw new Error(data.error||"通信エラー");
- return data;
-}
-$("cloud-generate").addEventListener("click",async()=>{
- const button=$("cloud-generate");button.disabled=true;$("cloud-status").textContent="Claude APIで記事を生成しています...";
- try{const data=await cloudRequest("POST",{topic:$("topic").value.trim()});current=data.output||"";approved=false;$("output").textContent=current;$("cloud-status").textContent="クラウドに下書きを保存しました。公開前に確認してください。";await refreshCloudJobs()}
- catch(e){$("cloud-status").textContent=e.message}
- finally{button.disabled=false}
-});
-async function refreshCloudJobs(){
- try{const data=await cloudRequest("GET");const list=$("cloud-jobs");list.replaceChildren();
- if(!data.jobs.length){const li=document.createElement("li");li.textContent="クラウド下書きはありません。";list.append(li)}
- data.jobs.forEach(job=>{const li=document.createElement("li"),button=document.createElement("button");button.textContent="下書きを開く";button.disabled=!job.output;button.addEventListener("click",()=>{current=job.output;approved=false;$("output").textContent=current;$("cloud-status").textContent="下書きを表示しました。公開前に内容を確認してください。"});li.append(document.createTextNode(job.created_at+" / "+job.topic+" / "+job.status+" "),button);list.append(li)});
- $("cloud-status").textContent="クラウド下書きを取得しました。";
- }catch(e){$("cloud-status").textContent=e.message}
-}
-$("cloud-refresh").addEventListener("click",refreshCloudJobs);
-render();
-</script></body></html>
+<html lang="ja">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><meta http-equiv="refresh" content="0;url=/#content" /><title>
+    J.A.R.V.I.S. CONTENTへ移動
+  </title>
+  <p><a href="/#content">統合したAI副業司令室のCONTENT部門へ</a></p>
+</html>
