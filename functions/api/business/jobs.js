@@ -2,7 +2,11 @@
 // Requires existing JARVIS_DB and JARVIS_ACCESS_PASSWORD bindings.
 // Explicit request only; scheduled execution is NOT enabled by this file.
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store"}});
-const valid=(request,env)=>!!env.JARVIS_ACCESS_PASSWORD && request.headers.get("x-jarvis-password")===env.JARVIS_ACCESS_PASSWORD;
+const authError=(request,env)=>{
+ if(!env.JARVIS_ACCESS_PASSWORD)return json({error:"Previewにアクセス用パスワードの設定が読み込まれていません",code:"ACCESS_SECRET_MISSING"},503);
+ if(request.headers.get("x-jarvis-password")!==env.JARVIS_ACCESS_PASSWORD)return json({error:"入力したパスワードとPreview設定が一致しません",code:"PASSWORD_MISMATCH"},401);
+ return null;
+};
 const instruction=(topic)=>[
 "あなたはJ.A.R.V.I.S.のAI副業リサーチ担当です。日本語でnote向けの記事下書きを作成してください。",
 "テーマ："+topic,
@@ -33,7 +37,7 @@ async function createDraft(env,topic){
  return (data.content||[]).filter(x=>x.type==="text").map(x=>x.text).join("\n");
 }
 export async function onRequestGet({request,env}){
- if(!valid(request,env))return json({error:"認証できません"},401);
+ const denied=authError(request,env);if(denied)return denied;
  if(!env.JARVIS_DB)return json({error:"D1未接続"},503);
  try{
   const result=await env.JARVIS_DB.prepare("SELECT id,job_type,topic,status,output,error,created_at,updated_at FROM business_jobs ORDER BY created_at DESC LIMIT 20").all();
@@ -41,7 +45,7 @@ export async function onRequestGet({request,env}){
  }catch{return json({error:"D1テーブル未作成、または読み込みに失敗しました"},503)}
 }
 export async function onRequestPost({request,env}){
- if(!valid(request,env))return json({error:"認証できません"},401);
+ const denied=authError(request,env);if(denied)return denied;
  if(!env.JARVIS_DB)return json({error:"D1未接続"},503);
  const provider=String(env.AI_PROVIDER||"anthropic").toLowerCase();
  if(!["anthropic","openai"].includes(provider))return json({error:"AI_PROVIDER設定が不正です"},503);
