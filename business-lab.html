@@ -9,7 +9,8 @@
 <main><section class="panel"><h2>副業オペレーション</h2><div class="steps"><span class="step">01 調査</span><span class="step">02 原稿生成</span><span class="step">03 人による確認</span><span class="step">04 投稿</span><span class="step">05 成果分析</span></div><p class="muted">現在は調査・原稿生成の試験機能です。投稿・収益取得・24時間自動運用はまだ接続していません。</p></section>
 <div class="grid"><section class="panel"><h2>01 / リサーチと制作指令</h2><label for="goal">目的</label><select id="goal"><option value="note記事">note記事</option><option value="アフィリエイト比較記事">アフィリエイト比較記事</option><option value="X投稿">X投稿</option><option value="Instagram投稿">Instagram投稿</option><option value="TikTok台本">TikTok台本</option></select><label for="topic">テーマ</label><input id="topic" value="初心者向けのAI活用・副業" maxlength="160"><label for="audience">対象読者</label><input id="audience" value="AIを使い始めた副業初心者" maxlength="160"><label for="notes">追加条件</label><textarea id="notes" placeholder="紹介したいサービス、読者の悩み、注意点など"></textarea><div class="actions"><button class="primary" id="generate">AIで原稿を生成</button><button id="save">下書きを端末に保存</button></div><p class="status" id="status" role="status"></p></section>
 <section class="panel"><h2>02 / AI生成結果（要確認）</h2><div class="output" id="output" aria-live="polite">ここに生成結果が表示されます。AIの出力は公開前に必ず確認してください。</div><div class="actions"><button id="copy">原稿をコピー</button><button id="approve">確認済みにする</button></div><p class="muted">外部公開・購入・API課金設定の変更は行いません。アフィリエイト表記、公式情報、価格・報酬条件を確認してください。</p></section>
-<section class="panel wide"><h2>03 / 保存した下書き</h2><p class="muted">この端末のブラウザに保存します。他の端末とは同期されません。ブラウザのデータ削除で消える可能性があります。</p><ul id="drafts"></ul></section>
+<section class="panel wide"><h2>03 / クラウド記事生成（開発・接続テスト用）</h2><p class="muted">Cloudflare D1テーブル作成後に利用できます。実行するたびClaude API料金が発生します。自動実行はまだ有効ではありません。</p><div class="actions"><button id="cloud-generate">クラウドで記事を1件生成</button><button id="cloud-refresh">保存済みの記事を取得</button></div><p id="cloud-status" class="status" role="status"></p><ul id="cloud-jobs"></ul></section>
+<section class="panel wide"><h2>04 / 保存した下書き</h2><p class="muted">この端末のブラウザに保存します。他の端末とは同期されません。ブラウザのデータ削除で消える可能性があります。</p><ul id="drafts"></ul></section>
 </div><p class="warning">開発版です。現在の公開用 J.A.R.V.I.S. は変更していません。APIの使用にはCloudflare側の認証設定と残高が必要です。</p></main>
 <script>
 "use strict";
@@ -23,5 +24,28 @@ $("generate").addEventListener("click",async()=>{const topic=$("topic").value.tr
 $("save").addEventListener("click",()=>{if(!current){status("先に原稿を生成してください");return}const items=readDrafts();items.unshift({date:new Date().toLocaleString("ja-JP"),goal:$("goal").value,topic:$("topic").value,text:current,approved});try{localStorage.setItem(storeKey,JSON.stringify(items.slice(0,30)));status("この端末に下書きを保存しました");render()}catch{status("保存できませんでした。ブラウザの保存容量をご確認ください。")}});
 $("copy").addEventListener("click",async()=>{if(!current)return;try{await navigator.clipboard.writeText(current);status("コピーしました")}catch{status("コピーできませんでした。テキストを選択してコピーしてください。")}});
 $("approve").addEventListener("click",()=>{if(!current)return;approved=true;status("確認済みとしてマークしました。自動投稿はされません。保存ボタンで状態を保存できます。")});
+async function cloudRequest(method,body){
+ let password=localStorage.getItem("jarvis_access_password");
+ if(!password){password=prompt("J.A.R.V.I.S.のアクセス用パスワード");if(!password)throw new Error("認証が必要です");localStorage.setItem("jarvis_access_password",password)}
+ const response=await fetch("/api/business/jobs",{method,headers:{"Content-Type":"application/json","x-jarvis-password":password},...(body?{body:JSON.stringify(body)}:{})});
+ const data=await response.json();
+ if(response.status===401)localStorage.removeItem("jarvis_access_password");
+ if(!response.ok)throw new Error(data.error||"通信エラー");
+ return data;
+}
+$("cloud-generate").addEventListener("click",async()=>{
+ const button=$("cloud-generate");button.disabled=true;$("cloud-status").textContent="Claude APIで記事を生成しています...";
+ try{const data=await cloudRequest("POST",{topic:$("topic").value.trim()});current=data.output||"";approved=false;$("output").textContent=current;$("cloud-status").textContent="クラウドに下書きを保存しました。公開前に確認してください。";await refreshCloudJobs()}
+ catch(e){$("cloud-status").textContent=e.message}
+ finally{button.disabled=false}
+});
+async function refreshCloudJobs(){
+ try{const data=await cloudRequest("GET");const list=$("cloud-jobs");list.replaceChildren();
+ if(!data.jobs.length){const li=document.createElement("li");li.textContent="クラウド下書きはありません。";list.append(li)}
+ data.jobs.forEach(job=>{const li=document.createElement("li"),button=document.createElement("button");button.textContent="下書きを開く";button.disabled=!job.output;button.addEventListener("click",()=>{current=job.output;approved=false;$("output").textContent=current;$("cloud-status").textContent="下書きを表示しました。公開前に内容を確認してください。"});li.append(document.createTextNode(job.created_at+" / "+job.topic+" / "+job.status+" "),button);list.append(li)});
+ $("cloud-status").textContent="クラウド下書きを取得しました。";
+ }catch(e){$("cloud-status").textContent=e.message}
+}
+$("cloud-refresh").addEventListener("click",refreshCloudJobs);
 render();
 </script></body></html>
