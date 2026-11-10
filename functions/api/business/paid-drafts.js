@@ -75,6 +75,10 @@ export async function onRequestPost({ request, env }) {
       )
         ? incoming.completionStatus
         : "unknown",
+      section:
+        typeof incoming.section === "string"
+          ? incoming.section.slice(0, 120)
+          : "",
       mode: ["full", "chapter", "continue"].includes(incoming.mode)
         ? incoming.mode
         : "full",
@@ -95,6 +99,7 @@ export async function onRequestPost({ request, env }) {
       stopReason: generation.stopReason,
       completionStatus: generation.completionStatus,
       mode: generation.mode,
+      section: generation.section,
     };
     project.brief = {
       topic: b.topic,

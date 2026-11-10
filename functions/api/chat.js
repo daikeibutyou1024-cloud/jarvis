@@ -79,7 +79,14 @@ export async function onRequestPost({ request, env }) {
     } catch (error) {
       return json({ error: error.message }, 400);
     }
-    const finalPrompt = generationPrompt(prompt, options);
+    let finalPrompt;
+    try {
+      finalPrompt = generationPrompt(prompt, options);
+    } catch (error) {
+      if (error.code === "INVALID_CONTINUATION")
+        return json({ error: error.message, code: error.code }, 409);
+      throw error;
+    }
     const provider = String(env.AI_PROVIDER || "anthropic").toLowerCase();
     if (!["anthropic", "openai"].includes(provider))
       return json({ error: "AI_PROVIDERの設定が不正です" }, 500);

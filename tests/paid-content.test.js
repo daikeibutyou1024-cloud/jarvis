@@ -222,8 +222,12 @@ test("a chapter response cannot duplicate the heading inserted by the applicatio
   assert.throws(
     () =>
       composeResult(
-        generated("### 実践手順\n準備：資料"),
-        options({ mode: "chapter", section: "実践手順" }),
+        generated("### 実践手順\n準備：資料\n### 実践手順\nもう一度"),
+        options({
+          mode: "chapter",
+          section: "実践手順",
+          previous: "# 記事\n## 有料部分\n",
+        }),
       ),
     /二重生成/,
   );

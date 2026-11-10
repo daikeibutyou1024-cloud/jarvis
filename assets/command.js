@@ -1,3 +1,4 @@
+import { chapterPlan } from "../lib/paid-chapter.js";
 import {
   PAID_FORMAT,
   SOURCE_MARK,
@@ -388,6 +389,16 @@ async function generate(cloud, continuation = false) {
       evidence = savedEvidence;
     }
     if (options) options.evidence = evidence;
+    if (
+      options?.format === PAID_FORMAT &&
+      (options.mode === "chapter" ||
+        (options.mode === "continue" && options.section))
+    )
+      chapterPlan(
+        options.previous,
+        options.section,
+        options.mode === "continue",
+      );
     prompt = buildPrompt(department, b, evidence);
     if (prompt.length > 6000)
       throw Error("指示が6000文字を超えます。メモや選択資料を減らしてください");

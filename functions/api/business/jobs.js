@@ -174,6 +174,7 @@ export async function onRequestPost({ request, env }) {
         { error: "指示が6000文字を超えます。メモや選択資料を減らしてください" },
         400,
       );
+    const finalPrompt = generationPrompt(prompt, options);
     if (!(await reserveAI(env, "job")))
       return json(
         { error: "本日のAI利用上限（全体10回・記事5回・UTC・失敗含む）です" },
@@ -191,7 +192,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "本日の生成上限（5件）に達しました" }, 429);
     }
     await metadataTable(env.JARVIS_DB);
-    const result = await createDraft(env, generationPrompt(prompt, options));
+    const result = await createDraft(env, finalPrompt);
     const { body: answer, generation } = composeResult(result, options);
     const evidence = body.context || "";
     const output =
