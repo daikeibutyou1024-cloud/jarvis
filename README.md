@@ -42,3 +42,5 @@ RESEARCH 3.0の本文取得・企画評価・利用回数制限は [docs/RESEARC
 CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTENT_COMPLETION_FIX.md](docs/CONTENT_COMPLETION_FIX.md) を参照。
 
 続き生成専用の指示・重複検査・原稿保護は [docs/CONTENT_CONTINUATION_FIX.md](docs/CONTENT_CONTINUATION_FIX.md) を参照。
+
+有料記事の制作手順と制限: [PAID_CONTENT_WORKFLOW.md](docs/PAID_CONTENT_WORKFLOW.md)

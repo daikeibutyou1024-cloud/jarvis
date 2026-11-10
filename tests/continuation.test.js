@@ -26,7 +26,7 @@ const options = generationOptions({
   mode: "continue",
   previous,
   title,
-  format: "note有料記事",
+  format: "note無料記事",
   evidence: "[R1] https://example.com / 未検証",
 });
 const generated = (text, stop_reason = "end_turn") =>

@@ -1,3 +1,4 @@
+import { paidInstructions } from "../lib/paid-content.js";
 export const departments = {
   research: {
     name: "RESEARCH",
@@ -43,7 +44,8 @@ export function buildPrompt(department, brief, context = "") {
     department === "content"
       ? {
           note有料記事:
-            "無料導入と有料部分を分け、有料部分は独自の実用手順・チェックリスト・テンプレートを中心にする。販売価格は未取得とし創作しない。",
+            "無料導入と有料部分を分ける。販売価格は未取得。" +
+            paidInstructions(),
           note無料記事:
             "読者の悩みと根拠ある導入説明を中心にし、次に読む記事への自然な導線を示す。",
           アフィリエイト比較記事:

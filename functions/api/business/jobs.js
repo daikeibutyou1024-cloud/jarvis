@@ -155,6 +155,15 @@ export async function onRequestPost({ request, env }) {
     }
     if (department !== "content" && options.mode !== "full")
       return json({ error: "章・続き生成はCONTENTのみです" }, 400);
+    if (department === "content")
+      options = generationOptions({
+        ...options,
+        title: topic,
+        audience: body.audience,
+        notes: body.notes,
+        format: body.format || options.format,
+        evidence: body.context || options.evidence,
+      });
     const prompt = buildPrompt(
       department,
       { ...body, topic },

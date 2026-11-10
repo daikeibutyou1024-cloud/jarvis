@@ -127,7 +127,7 @@ try {
     (process.env.BASE_URL || "http://localhost:8080") + "/#content",
   );
   await page.locator("#topic").fill(title);
-  await page.locator("#format").selectOption("note有料記事");
+  await page.locator("#format").selectOption("note無料記事");
   await page.locator("#generate").click();
   await page.locator("#password").fill("test");
   await page.locator("#auth-form button.primary").click();

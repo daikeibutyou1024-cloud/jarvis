@@ -272,12 +272,21 @@
               ><input
                 id="content-section"
                 maxlength="120"
+                list="paid-sections"
                 placeholder="例：STEP 4 実践チェックリスト"
               />
               <p class="hint">
                 章・続き生成は明示操作ごとに1回利用します。上限は通常4000／クラウド2500トークンのままです。前の原稿は末尾最大4000文字だけをAIへ提供します。章だけの生成は記事全体を未完成として扱います。
               </p>
             </div>
+            <p id="paid-content-status" class="hint" hidden role="status"></p>
+            <datalist id="paid-sections">
+              <option value="無料部分"></option>
+              <option value="有料部分"></option>
+              <option value="実践手順"></option>
+              <option value="記入済みサンプル（架空の例）"></option>
+              <option value="完成テンプレート"></option>
+            </datalist>
             <form id="brief-form">
               <label for="topic">テーマ・商品・事業</label
               ><input
@@ -340,6 +349,8 @@
             </div>
             <div class="actions">
               <button id="save-draft">端末に保存</button
+              ><button id="save-paid-cloud" hidden>
+                有料原稿をクラウド保存（AI利用なし）</button
               ><button id="copy">コピー</button
               ><button id="approve">確認済みにする</button
               ><button id="handoff">次の部門へ引き継ぐ</button>

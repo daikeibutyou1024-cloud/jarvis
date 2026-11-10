@@ -1,4 +1,11 @@
 import {
+  PAID_FORMAT,
+  SOURCE_MARK,
+  articleBody,
+  inspectPaid,
+  renderPaidSources,
+} from "../lib/paid-content.js";
+import {
   EVIDENCE_SEPARATOR,
   unknownGeneration,
   generationLabel,
@@ -216,15 +223,95 @@ function setOutput(
   generation = null,
   evidence = "",
 ) {
+  const legacyPaid =
+    dept === "content" &&
+    !generation?.project &&
+    $("format").value === PAID_FORMAT;
+  if (legacyPaid) reviewed = false;
   $("output").value = text;
   outputDepartment = dept in departments ? dept : "content";
   currentGeneration =
     dept === "content" ? generation || unknownGeneration() : generation;
-  currentEvidence = evidence;
+  currentEvidence = evidence || currentGeneration?.project?.evidence || "";
+  if (
+    currentGeneration?.project ||
+    (dept === "content" && $("format").value === PAID_FORMAT)
+  )
+    refreshPaid(false);
   approved = reviewed && (dept !== "content" || canApprove(currentGeneration));
+  if (approved && currentGeneration?.project)
+    currentGeneration.project.humanReview = {
+      status: "approved",
+      at: currentGeneration.project.humanReview?.at || new Date().toISOString(),
+    };
   reviewLabel();
 }
+function refreshPaid(render = false) {
+  if (
+    outputDepartment !== "content" ||
+    !(
+      currentGeneration?.project ||
+      currentGeneration?.format === PAID_FORMAT ||
+      $("format").value === PAID_FORMAT
+    )
+  )
+    return;
+  const old = currentGeneration?.project;
+  const project = inspectPaid($("output").value, currentEvidence, old);
+  if (department === "content") {
+    try {
+      const latest = context();
+      if (latest && latest !== currentEvidence)
+        project.missing.push(
+          "現在のRESEARCH引き継ぎと保存資料が異なります。資料と原稿を再確認してください",
+        );
+    } catch (e) {
+      project.missing.push(e.message);
+    }
+  }
+  if (project.missing.length) project.status = "incomplete";
+  if (old?.brief) project.brief = old.brief;
+  if (old?.generationState) project.generationState = old.generationState;
+  project.sections = project.sections.map((s) => ({
+    ...s,
+    generationState:
+      old?.sections?.find((x) => x.title === s.title)?.generationState ||
+      "requires_human_review",
+  }));
+  if (approved && old?.humanReview?.status === "approved")
+    project.humanReview = old.humanReview;
+  currentGeneration = {
+    ...(currentGeneration || unknownGeneration()),
+    format: PAID_FORMAT,
+    project,
+  };
+  if (project.missing.length) {
+    currentGeneration.articleStatus = "incomplete";
+    approved = false;
+    project.humanReview = { status: "pending" };
+  } else if (currentGeneration.articleStatus !== "manual_complete")
+    currentGeneration.articleStatus =
+      currentGeneration.completionStatus === "complete"
+        ? project.status
+        : "incomplete";
+  if (render) $("output").value = renderPaidSources($("output").value, project);
+}
 function reviewLabel() {
+  const panel = $("paid-content-status");
+  panel.hidden = !currentGeneration?.project || outputDepartment !== "content";
+  $("save-paid-cloud").hidden = panel.hidden;
+  if (!panel.hidden) {
+    const p = currentGeneration.project;
+    panel.textContent =
+      "有料記事 / " +
+      (p.missing.length
+        ? "未完成：" + p.missing.join(" ／ ")
+        : "必須形式の検査通過・人間の全文確認が必要") +
+      " / 章：" +
+      p.sections.map((s) => s.title).join(" → ") +
+      " / " +
+      p.qualityNotice;
+  }
   if (outputDepartment === "content" && $("output").value) {
     const g = currentGeneration || unknownGeneration();
     $("review-state").textContent =
@@ -242,6 +329,9 @@ function reviewLabel() {
 }
 $("output").addEventListener("input", () => {
   approved = false;
+  if (currentGeneration?.project)
+    currentGeneration.project.humanReview = { status: "pending" };
+  refreshPaid();
   reviewLabel();
 });
 function setBusy(value) {
@@ -263,9 +353,7 @@ async function generate(cloud, continuation = false) {
   let options;
   if (department === "content") {
     const previous =
-      outputDepartment === "content"
-        ? $("output").value.split(EVIDENCE_SEPARATOR)[0]
-        : "";
+      outputDepartment === "content" ? articleBody($("output").value) : "";
     const mode = continuation ? "continue" : $("content-generation-mode").value;
     const section = continuation
       ? currentGeneration?.section || ""
@@ -281,6 +369,9 @@ async function generate(cloud, continuation = false) {
       mode,
       section,
       previous: mode === "full" ? "" : previous,
+      projectId: mode !== "full" ? currentGeneration?.project?.id : null,
+      audience: b.audience,
+      notes: b.notes,
       title: b.topic,
       format: b.format,
     };
@@ -288,7 +379,15 @@ async function generate(cloud, continuation = false) {
   let evidence, prompt;
   try {
     evidence = context();
-    if (options?.mode === "continue") options.evidence = evidence;
+    if (options?.mode !== "full" && currentGeneration?.project) {
+      const savedEvidence = currentGeneration.project.evidence;
+      if (evidence && evidence !== savedEvidence)
+        throw Error(
+          "制作中の記事と引き継ぎ資料が異なります。資料と原稿を再確認し、別原稿として作成してください",
+        );
+      evidence = savedEvidence;
+    }
+    if (options) options.evidence = evidence;
     prompt = buildPrompt(department, b, evidence);
     if (prompt.length > 6000)
       throw Error("指示が6000文字を超えます。メモや選択資料を減らしてください");
@@ -370,6 +469,14 @@ $("manual-complete").onclick = () => {
   if (outputDepartment !== "content")
     return say("CONTENTの原稿を先に作成・選択してください");
   if (!$("output").value.trim()) return say("補完する原稿がありません");
+  refreshPaid(true);
+  if (currentGeneration?.project?.missing.length) {
+    reviewLabel();
+    return say(
+      "必須成果物が不足しています：" +
+        currentGeneration.project.missing.join(" ／ "),
+    );
+  }
   currentGeneration = {
     ...(currentGeneration || unknownGeneration()),
     articleStatus: "manual_complete",
@@ -382,16 +489,24 @@ $("manual-complete").onclick = () => {
   );
 };
 $("approve").onclick = () => {
+  refreshPaid(true);
   if (!$("output").value) return say("先に下書きを作成してください");
   if (outputDepartment === "content" && !canApprove(currentGeneration))
     return say(
       "未完成・終了状態不明の原稿は確認済みにできません。続きの生成か手動補完を先に行ってください",
     );
   approved = true;
+  if (currentGeneration?.project)
+    currentGeneration.project.humanReview = {
+      status: "approved",
+      at: new Date().toISOString(),
+    };
   reviewLabel();
   say("確認済みにしました。端末保存で状態を記録できます。投稿はされません。");
 };
 $("copy").onclick = async () => {
+  refreshPaid(true);
+  reviewLabel();
   try {
     await navigator.clipboard.writeText($("output").value);
     say("原稿をコピーしました");
@@ -419,6 +534,8 @@ function renderDrafts() {
     open.textContent = "開く";
     open.onclick = () => {
       navigate(d.department in departments ? d.department : "content");
+      for (const id of ["topic", "audience", "format", "notes"])
+        if (typeof d[id] === "string") $(id).value = d[id];
       setOutput(
         d.text,
         d.department,
@@ -445,6 +562,8 @@ function renderDrafts() {
   });
 }
 $("save-draft").onclick = () => {
+  refreshPaid(true);
+  reviewLabel();
   if (!$("output").value.trim()) return say("保存する原稿がありません");
   const next = [
     {
@@ -464,6 +583,37 @@ $("save-draft").onclick = () => {
     say("この端末に下書きを保存しました");
   }
 };
+$("save-paid-cloud").onclick = async () => {
+  if (busy || !currentGeneration?.project) return;
+  refreshPaid(true);
+  try {
+    const p = currentGeneration.project;
+    const d = await request("/api/business/paid-drafts", "POST", {
+      id: p.id,
+      topic: $("topic").value,
+      text: $("output").value,
+      evidence: currentEvidence,
+      generation: currentGeneration,
+      manualComplete: currentGeneration.articleStatus === "manual_complete",
+      approved,
+    });
+    setOutput(
+      d.output,
+      "content",
+      d.generation.project.humanReview.status === "approved",
+      d.generation,
+      p.evidence,
+    );
+    say(
+      "有料原稿と検査・確認状態をクラウドに保存しました。AI APIは利用していません。",
+    );
+    await refreshCloud();
+  } catch (e) {
+    say(e.message);
+  } finally {
+    reviewLabel();
+  }
+};
 async function refreshCloud() {
   const button = $("cloud-refresh");
   button.disabled = true;
@@ -472,6 +622,16 @@ async function refreshCloud() {
     if (!Array.isArray(data.jobs)) throw Error("クラウド一覧の形式が不正です");
     const root = $("cloud-jobs");
     root.replaceChildren();
+    try {
+      const saved = await request("/api/business/paid-drafts");
+      for (const d of saved.drafts || [])
+        data.jobs.unshift({
+          ...d,
+          job_type: "content_draft",
+          status: "保存原稿",
+          created_at: d.updated_at,
+        });
+    } catch {}
     for (const job of data.jobs) {
       const li = document.createElement("li"),
         label = document.createElement("div"),
@@ -486,7 +646,16 @@ async function refreshCloud() {
         const dept = String(job.job_type).replace("_draft", "");
         navigate(dept in departments ? dept : "content");
         $("topic").value = job.topic;
-        setOutput(job.output, dept, false, job.generation);
+        if (job.generation?.format) $("format").value = job.generation.format;
+        for (const key of ["topic", "format", "audience", "notes"])
+          if (typeof job.generation?.project?.brief?.[key] === "string")
+            $(key).value = job.generation.project.brief[key];
+        setOutput(
+          job.output,
+          dept,
+          job.generation?.project?.humanReview?.status === "approved",
+          job.generation,
+        );
         $("output").focus();
       };
       li.append(label, open);
