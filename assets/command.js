@@ -1,3 +1,9 @@
+import {
+  EVIDENCE_SEPARATOR,
+  unknownGeneration,
+  generationLabel,
+  canApprove,
+} from "../lib/generation.js";
 import { initResearch } from "./research.js";
 import {
   departments,
@@ -54,6 +60,8 @@ let page = "overview",
   authPending = null;
 const history = [];
 let research = null;
+let currentGeneration = null,
+  currentEvidence = "";
 // Retire the former persistent password cache. Authentication remains unchanged on the server.
 try {
   localStorage.removeItem("jarvis_access_password");
@@ -149,6 +157,9 @@ function navigate(next) {
     $("finance-tools").hidden = page !== "finance";
     $("format").disabled = page !== "content";
   }
+  $("content-generation-tools").hidden = page !== "content";
+  $("content-continue-tools").hidden = page !== "content";
+  $("generation-status").hidden = page !== "content";
   $("research-tools").hidden = page !== "research";
   $("content-evidence").hidden = page !== "content";
   if (page === "research")
@@ -198,13 +209,31 @@ const context = () =>
     : department === "finance"
       ? "累計の手入力収支（円）：" + JSON.stringify(financeTotals(ledger))
       : research?.context(department) || "";
-function setOutput(text, dept = department, reviewed = false) {
+function setOutput(
+  text,
+  dept = department,
+  reviewed = false,
+  generation = null,
+  evidence = "",
+) {
   $("output").value = text;
   outputDepartment = dept in departments ? dept : "content";
-  approved = reviewed;
+  currentGeneration =
+    dept === "content" ? generation || unknownGeneration() : generation;
+  currentEvidence = evidence;
+  approved = reviewed && (dept !== "content" || canApprove(currentGeneration));
   reviewLabel();
 }
 function reviewLabel() {
+  if (outputDepartment === "content" && $("output").value) {
+    const g = currentGeneration || unknownGeneration();
+    $("review-state").textContent =
+      (approved ? "確認済み / " : generationLabel(g) + " / ") + "CONTENT";
+    $("generation-status").textContent =
+      `${generationLabel(g)} / 終了理由：${g.stopReason || "不明"} / 今回の入力トークン：${g.usage?.input_tokens ?? "未取得"} / 出力トークン：${g.usage?.output_tokens ?? "未取得"}。生成終了は内容・構成の完全性を保証しません。`;
+    return;
+  }
+  $("generation-status").textContent = "";
   $("review-state").textContent = !$("output").value
     ? "未生成"
     : approved
@@ -217,13 +246,39 @@ $("output").addEventListener("input", () => {
 });
 function setBusy(value) {
   busy = value;
-  for (const id of ["generate", "cloud-generate", "send-command"])
+  for (const id of [
+    "generate",
+    "cloud-generate",
+    "send-command",
+    "continue-local",
+    "continue-cloud",
+    "manual-complete",
+  ])
     $(id).disabled = value;
 }
-async function generate(cloud) {
+async function generate(cloud, continuation = false) {
   if (busy) return;
   if (!$("brief-form").reportValidity()) return;
   const b = brief();
+  let options;
+  if (department === "content") {
+    const previous =
+      outputDepartment === "content"
+        ? $("output").value.split(EVIDENCE_SEPARATOR)[0]
+        : "";
+    const mode = continuation ? "continue" : $("content-generation-mode").value;
+    const section = continuation
+      ? currentGeneration?.section || ""
+      : mode === "chapter"
+        ? $("content-section").value.trim()
+        : "";
+    if (mode === "chapter" && !section) return say("章名を入力してください");
+    if (mode === "continue" && !previous.trim())
+      return say("続きの対象となる原稿がありません");
+    if (mode !== "full" && previous.length > 30000)
+      return say("章・続き生成の既存原稿は30000文字以内です");
+    options = { mode, section, previous: mode === "full" ? "" : previous };
+  }
   let evidence, prompt;
   try {
     evidence = context();
@@ -247,9 +302,11 @@ async function generate(cloud) {
           ...b,
           department: dept,
           context: evidence,
+          ...(options ? { generation: options } : {}),
         })
       : await request("/api/chat", "POST", {
           prompt,
+          ...(options ? { generation: options } : {}),
         });
     const text = cloud ? data.output : data.answer;
     if (!String(text || "").trim())
@@ -258,15 +315,33 @@ async function generate(cloud) {
       );
     const withEvidence =
       !cloud && evidence.startsWith("【RESEARCH ")
-        ? text + "\n\n--- 入力された調査資料（内容は要確認） ---\n" + evidence
+        ? text + EVIDENCE_SEPARATOR + evidence
         : text;
-    setOutput(withEvidence, dept);
-    $("ai-status").textContent = "生成成功";
+    setOutput(
+      withEvidence,
+      dept,
+      false,
+      data.generation || unknownGeneration(),
+      evidence,
+    );
+    const incomplete = dept === "content" && !canApprove(currentGeneration);
+    $("ai-status").textContent = incomplete
+      ? generationLabel(currentGeneration)
+      : dept === "content"
+        ? "生成終了"
+        : "生成成功";
     if (cloud) {
-      $("db-status").textContent = "保存成功";
+      $("db-status").textContent = incomplete ? "未完成原稿を保存" : "保存成功";
       await refreshCloud();
     }
-    say("下書きを作成しました。出典・内容を確認してください。");
+    say(
+      incomplete
+        ? generationLabel(currentGeneration) +
+            "。続きを作成するか手動で補完してください。"
+        : dept === "content"
+          ? "生成が終了しました。記事の構成・出典・内容を確認してください。"
+          : "下書きを作成しました。出典・内容を確認してください。",
+    );
   } catch (e) {
     say(e.message);
     if (cloud) $("db-status").textContent = "操作失敗 / 要確認";
@@ -280,8 +355,29 @@ $("brief-form").onsubmit = (e) => {
   generate(false);
 };
 $("cloud-generate").onclick = () => generate(true);
+$("continue-local").onclick = () => generate(false, true);
+$("continue-cloud").onclick = () => generate(true, true);
+$("manual-complete").onclick = () => {
+  if (outputDepartment !== "content")
+    return say("CONTENTの原稿を先に作成・選択してください");
+  if (!$("output").value.trim()) return say("補完する原稿がありません");
+  currentGeneration = {
+    ...(currentGeneration || unknownGeneration()),
+    articleStatus: "manual_complete",
+    manualCompletedAt: new Date().toISOString(),
+  };
+  approved = false;
+  reviewLabel();
+  say(
+    "利用者による全文補完を記録しました。出典と内容を別途確認してください。AIの終了理由は保持しています。",
+  );
+};
 $("approve").onclick = () => {
   if (!$("output").value) return say("先に下書きを作成してください");
+  if (outputDepartment === "content" && !canApprove(currentGeneration))
+    return say(
+      "未完成・終了状態不明の原稿は確認済みにできません。続きの生成か手動補完を先に行ってください",
+    );
   approved = true;
   reviewLabel();
   say("確認済みにしました。端末保存で状態を記録できます。投稿はされません。");
@@ -309,12 +405,18 @@ function renderDrafts() {
       open = document.createElement("button"),
       del = document.createElement("button");
     text.textContent = d.topic || "無題";
-    small.textContent = `${d.date || ""} / ${d.department ? departments[d.department]?.name || d.department : d.goal || "旧下書き"} / ${d.approved ? "確認済み" : "要確認"}`;
+    small.textContent = `${d.date || ""} / ${d.department ? departments[d.department]?.name || d.department : d.goal || "旧下書き"} / ${d.department === "content" && !canApprove(d.generation) ? generationLabel(d.generation) : d.approved ? "確認済み" : "要確認"}`;
     text.append(small);
     open.textContent = "開く";
     open.onclick = () => {
       navigate(d.department in departments ? d.department : "content");
-      setOutput(d.text, d.department, !!d.approved);
+      setOutput(
+        d.text,
+        d.department,
+        !!d.approved,
+        d.generation,
+        d.evidence || "",
+      );
       for (const id of ["topic", "audience", "format", "notes"])
         if (typeof d[id] === "string") $(id).value = d[id];
       $("output").focus();
@@ -342,6 +444,8 @@ $("save-draft").onclick = () => {
       date: new Date().toLocaleString("ja-JP"),
       text: $("output").value,
       approved,
+      generation: currentGeneration,
+      evidence: currentEvidence,
     },
     ...drafts,
   ].slice(0, 30);
@@ -365,7 +469,7 @@ async function refreshCloud() {
         small = document.createElement("small"),
         open = document.createElement("button");
       label.textContent = job.topic;
-      small.textContent = `${job.created_at} UTC / ${job.status}${job.error ? " / " + job.error : ""}`;
+      small.textContent = `${job.created_at} UTC / ${job.status}${["content_draft", "note_draft"].includes(job.job_type) ? " / " + generationLabel(job.generation) : ""}${job.error ? " / " + job.error : ""}`;
       label.append(small);
       open.textContent = "開く";
       open.disabled = !job.output;
@@ -373,7 +477,7 @@ async function refreshCloud() {
         const dept = String(job.job_type).replace("_draft", "");
         navigate(dept in departments ? dept : "content");
         $("topic").value = job.topic;
-        setOutput(job.output, dept);
+        setOutput(job.output, dept, false, job.generation);
         $("output").focus();
       };
       li.append(label, open);
@@ -638,6 +742,8 @@ renderMetrics();
 renderFinance();
 
 $("handoff").onclick = () => {
+  if (outputDepartment === "content" && !canApprove(currentGeneration))
+    return say("未完成原稿です。補完してから他部門へ引き継いでください");
   const text = $("output").value.trim();
   if (!text) return say("先に下書きを作成してください");
   const flow = Object.keys(departments);

@@ -5,6 +5,8 @@ import {
   manualRecord,
   importRecords,
   researchPacket,
+  handoffIsStale,
+  bodyState,
 } from "./research-data.js";
 const STORE = "jarvis_research_records_v2",
   HANDOFF = "jarvis_research_handoff_v2";
@@ -50,6 +52,7 @@ export function initResearch({
     if (!write(STORE, next)) return false;
     records = next;
     render();
+    renderHandoff();
     return true;
   }
   function add(items) {
@@ -219,12 +222,27 @@ export function initResearch({
       root.append(article);
     }
   }
+  function assertFreshHandoff() {
+    const latest = read(STORE, []);
+    if (handoffIsStale(handoff, Array.isArray(latest) ? latest : []))
+      throw Error(
+        "引き継ぎ後に資料が更新・削除されています。RESEARCHで内容を再確認し、CONTENTへ再度引き継いでください",
+      );
+  }
   function renderHandoff() {
+    let warning = "";
+    try {
+      assertFreshHandoff();
+    } catch (error) {
+      warning = error.message;
+    }
+    $("content-evidence-warning").textContent = warning;
+    $("content-evidence-warning").hidden = !warning;
     const root = $("content-evidence-list");
     root.replaceChildren();
     for (const r of handoff) {
       const li = document.createElement("li");
-      li.textContent = `${r.title} / 利用者確認：${r.reviewedAt || "未確認"} / ${type(r)} / 取得：${r.fetchedAt || "未取得"}`;
+      li.textContent = `${r.title} / 本文：${bodyState(r).acquired ? "取得済み" : "未取得"} / AI提供：${bodyState(r).providedChars}文字 / 利用者確認：${r.reviewedAt || "未確認"} / ${type(r)} / 取得：${r.fetchedAt || "未取得"}`;
       if (r.sourceUrl) li.append(" ", link(r.sourceUrl, "出典"));
       root.append(li);
     }
@@ -469,6 +487,14 @@ export function initResearch({
       say("CONTENTへの資料引き継ぎを解除しました");
     }
   };
+  window.addEventListener("storage", (event) => {
+    if (event.key === STORE) {
+      const latest = read(STORE, []);
+      if (Array.isArray(latest)) records = latest.filter(valid).slice(0, 100);
+      render();
+      renderHandoff();
+    }
+  });
   render();
   renderHandoff();
   renderPlans();
@@ -477,6 +503,7 @@ export function initResearch({
       if (dept === "research")
         return researchPacket(records.filter((r) => selected.has(r.id)));
       if (dept === "content" && handoff.length) {
+        assertFreshHandoff();
         const packet =
           researchPacket(handoff) +
           (selectedPlan ? "\n" + planPacket(selectedPlan) : "");

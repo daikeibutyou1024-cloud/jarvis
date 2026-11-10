@@ -1,3 +1,9 @@
+import {
+  normalizeResult,
+  generationOptions,
+  generationPrompt,
+  composeResult,
+} from "../../lib/generation.js";
 import { reserveAI } from "../../lib/ai-quota.js";
 // Provider switch: Claude remains the default until its prepaid credit is used.
 // Set AI_PROVIDER=openai and OPENAI_API_KEY as a Cloudflare secret when ready.
@@ -28,10 +34,11 @@ async function askClaude(env, prompt) {
   const result = await response.json();
   if (!response.ok)
     throw new Error(result.error?.message || "Claude APIエラー");
-  return (result.content || [])
-    .filter((item) => item.type === "text")
-    .map((item) => item.text)
-    .join("\n");
+  return normalizeResult(
+    result,
+    "anthropic",
+    env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
+  );
 }
 
 async function askOpenAI(env, prompt) {
@@ -50,7 +57,7 @@ async function askOpenAI(env, prompt) {
   const result = await response.json();
   if (!response.ok)
     throw new Error(result.error?.message || "OpenAI APIエラー");
-  return result.choices?.[0]?.message?.content || "";
+  return normalizeResult(result, "openai", env.OPENAI_MODEL || "gpt-4.1-mini");
 }
 
 export async function onRequestPost({ request, env }) {
@@ -66,6 +73,13 @@ export async function onRequestPost({ request, env }) {
     const prompt = String(body.prompt || "").trim();
     if (!prompt || prompt.length > 6000)
       return json({ error: "指示は1〜6000文字で入力してください" }, 400);
+    let options;
+    try {
+      options = generationOptions(body.generation);
+    } catch (error) {
+      return json({ error: error.message }, 400);
+    }
+    const finalPrompt = generationPrompt(prompt, options);
     const provider = String(env.AI_PROVIDER || "anthropic").toLowerCase();
     if (!["anthropic", "openai"].includes(provider))
       return json({ error: "AI_PROVIDERの設定が不正です" }, 500);
@@ -81,9 +95,10 @@ export async function onRequestPost({ request, env }) {
     try {
       const answer =
         provider === "openai"
-          ? await askOpenAI(env, prompt)
-          : await askClaude(env, prompt);
-      return json({ answer });
+          ? await askOpenAI(env, finalPrompt)
+          : await askClaude(env, finalPrompt);
+      const { body: article, generation } = composeResult(answer, options);
+      return json({ answer: article, generation });
     } catch (error) {
       // Do not return raw provider errors: they can contain sensitive request details.
       console.error(

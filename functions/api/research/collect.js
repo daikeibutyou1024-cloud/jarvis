@@ -181,7 +181,7 @@ export function parseRecords(text, source, now = new Date().toISOString()) {
               )?.["@_href"],
         text:
           plain(r.description || r.summary || "").slice(0, 350) ||
-          "RSS見出しのみ取得。記事本文・商品仕様は未取得。",
+          "RSS配信に要約はありません。本文の取得状態は別項目です。",
         publishedAt:
           plain(r.date || r.pubDate || r.published || r.updated) || null,
       }));

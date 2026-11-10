@@ -247,6 +247,12 @@
             未取得・未選択。RESEARCHで資料を選んで引き継げます。
           </p>
           <p id="content-plan" class="research-text"></p>
+          <p
+            id="content-evidence-warning"
+            class="hint"
+            role="status"
+            hidden
+          ></p>
           <ul id="content-evidence-list"></ul>
           <p class="hint">
             次のAI生成に自動添付します。元の取得日時を保持したスナップショットで、最新情報ではありません。下書き保存時も出典記録を本文末尾に残します。
@@ -256,6 +262,22 @@
         <div class="workspace-grid">
           <section class="panel">
             <h3>制作ブリーフ</h3>
+            <div id="content-generation-tools" hidden>
+              <label for="content-generation-mode">記事の生成方法</label
+              ><select id="content-generation-mode">
+                <option value="full">記事全体を作成</option>
+                <option value="chapter">指定した章だけを追加</option>
+              </select>
+              <label for="content-section">章名（章単位の場合）</label
+              ><input
+                id="content-section"
+                maxlength="120"
+                placeholder="例：STEP 4 実践チェックリスト"
+              />
+              <p class="hint">
+                章・続き生成は明示操作ごとに1回利用します。上限は通常4000／クラウド2500トークンのままです。前の原稿は末尾最大4000文字だけをAIへ提供します。章だけの生成は記事全体を未完成として扱います。
+              </p>
+            </div>
             <form id="brief-form">
               <label for="topic">テーマ・商品・事業</label
               ><input
@@ -310,6 +332,12 @@
               placeholder="生成結果や編集した原稿を表示します"
               aria-label="生成結果・原稿"
             ></textarea>
+            <p id="generation-status" class="hint" role="status" hidden></p>
+            <div id="content-continue-tools" class="actions" hidden>
+              <button id="continue-local">続きを作成（端末）</button
+              ><button id="continue-cloud">続きを作成＋クラウド保存</button
+              ><button id="manual-complete">手動で全文の補完を完了</button>
+            </div>
             <div class="actions">
               <button id="save-draft">端末に保存</button
               ><button id="copy">コピー</button
