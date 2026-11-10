@@ -68,7 +68,7 @@ try {
       }
     };
   });
-  await page.goto("http://localhost:8080");
+  await page.goto((process.env.BASE_URL || "http://localhost:8080"));
   await page.waitForSelector(".dept-card");
   assert.equal(posts, 0);
   await page.locator("#orb-voice").click();

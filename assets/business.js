@@ -40,6 +40,16 @@ export function buildPrompt(department, brief, context = "") {
   return [
     `あなたはJ.A.R.V.I.S.の${d.name}部門のAI副業アシスタントです。日本語で回答。`,
     d.task,
+    department === "content"
+      ? {
+          note有料記事:
+            "無料導入と有料部分を分け、有料部分は独自の実用手順・チェックリスト・テンプレートを中心にする。販売価格は未取得とし創作しない。",
+          note無料記事:
+            "読者の悩みと根拠ある導入説明を中心にし、次に読む記事への自然な導線を示す。",
+          アフィリエイト比較記事:
+            "選定基準・比較表・メリット・欠点・PR表記を含める。Amazon等の最新価格・報酬率・提携条件は根拠がなければ未取得とする。",
+        }[brief.format] || ""
+      : "",
     `制作形式：${brief.format || "note記事"}`,
     `テーマ：${brief.topic}`,
     `対象読者：${brief.audience || "未指定"}`,

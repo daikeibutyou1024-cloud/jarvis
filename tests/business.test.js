@@ -102,6 +102,15 @@ test("daily cap reserves atomically and prevents provider calls", async () => {
     ...env,
     JARVIS_DB: {
       prepare(sql) {
+        if (/CREATE|DELETE/.test(sql))
+          return {
+            bind() {
+              return this;
+            },
+            async run() {
+              return { meta: { changes: 0 } };
+            },
+          };
         assert.match(sql, /INSERT.*SELECT.*COUNT/s);
         return {
           bind() {
@@ -147,7 +156,7 @@ test("cloud generation preserves D1 lifecycle and both providers", async () => {
           prepare(sql) {
             return {
               bind(...params) {
-                updates.push({ sql, params });
+                if (!sql.includes("ai_usage")) updates.push({ sql, params });
                 return this;
               },
               async run() {

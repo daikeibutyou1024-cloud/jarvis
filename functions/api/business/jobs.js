@@ -1,3 +1,4 @@
+import { reserveAI } from "../../../lib/ai-quota.js";
 import { buildPrompt, departments } from "../../../assets/business.js";
 // Cloudflare Pages Function: authorized job execution and read-only status.
 // Requires existing JARVIS_DB and JARVIS_ACCESS_PASSWORD bindings.
@@ -131,6 +132,11 @@ export async function onRequestPost({ request, env }) {
         { error: "指示が6000文字を超えます。メモや選択資料を減らしてください" },
         400,
       );
+    if (!(await reserveAI(env, "job")))
+      return json(
+        { error: "本日のAI利用上限（全体10回・記事5回・UTC・失敗含む）です" },
+        429,
+      );
     // Daily cost guardrail (UTC): maximum five attempted generations.
     id = crypto.randomUUID();
     const reservation = await env.JARVIS_DB.prepare(
@@ -145,7 +151,7 @@ export async function onRequestPost({ request, env }) {
     const answer = await createDraft(env, prompt);
     const evidence = body.context || "";
     const output =
-      answer && evidence.startsWith("【RESEARCH 2.0")
+      answer && evidence.startsWith("【RESEARCH ")
         ? answer + "\n\n--- 入力された調査資料（内容は要確認） ---\n" + evidence
         : answer;
     if (!output) throw new Error("empty response");

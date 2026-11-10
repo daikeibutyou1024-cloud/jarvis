@@ -257,7 +257,7 @@ async function generate(cloud) {
         "空の応答でした。再実行前にAPIの利用状況を確認してください。",
       );
     const withEvidence =
-      !cloud && evidence.startsWith("【RESEARCH 2.0")
+      !cloud && evidence.startsWith("【RESEARCH ")
         ? text + "\n\n--- 入力された調査資料（内容は要確認） ---\n" + evidence
         : text;
     setOutput(withEvidence, dept);
@@ -651,4 +651,12 @@ $("handoff").onclick = () => {
   );
 };
 
-research = initResearch({ request, navigate, say, brief, write, read });
+research = initResearch({
+  request,
+  navigate,
+  say,
+  brief,
+  write,
+  read,
+  persistBrief: () => write(keys.brief, brief()),
+});

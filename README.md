@@ -4,7 +4,7 @@
 
 ## 構成と機能
 - `index.html` / `assets/`: 5部門、青い球体、音声入力・読み上げ、AI会話、編集可能な下書き。
-- RESEARCH 2.0: 官公庁RSS・GitHub公開情報の取得、比較資料の手入力・JSON/CSV取り込み、出典記録とCONTENT引き継ぎ。任意URLの自動取得なし。
+- RESEARCH 3.0: 官公庁RSS・GitHub、許可された公式記事本文、比較資料、AI仮説の企画評価、確認済み資料とCONTENT引き継ぎ。任意URL巡回なし。
 - CONTENT: note・アフィリエイト記事・X・Instagram・TikTokの下書き。
 - MARKETING: 集客・CTA・広告導線の設計。投稿・提携登録なし。
 - ANALYTICS: 月次アクセス・クリック・成果を手入力、CTR・成果率を集計。端末保存。
@@ -28,7 +28,7 @@ API付き: `npx wrangler pages dev . --d1 JARVIS_DB --persist-to work/d1`（Wran
 
 アクセス用パスワードはこのタブのメモリ内のみ保持。APIキーはブラウザへ渡さない。
 旧端末下書きのキーは維持。クラウド生成はUTC日次5回（失敗含む）、単一INSERTの条件で枠を予約。
-通常チャット・通常生成はこの日次上限の対象外で、実行時API料金が発生する。
+AI利用は通常会話・生成・企画を合算してUTC日次10回、企画は2回、クラウド記事は5回まで（失敗含む）。既存API料金が発生する。利用回数を確保できないD1未接続時はAI呼び出しを停止する。
 旧Googleテーブルやトークン・R2データは削除しない。旧画面・動画・Google API・Netlify重複実装はGit履歴とバックアップブランチに保持。
 
 ## 検証の限界
@@ -36,3 +36,5 @@ API付き: `npx wrangler pages dev . --d1 JARVIS_DB --persist-to work/d1`（Wran
 Preview連携により開発ブランチへのpushでPreviewを更新する。本番mainへのpush・マージ・本番公開は行わない。
 
 RESEARCH 2.0の利用手順・取り込み仕様・制限・検証範囲は [docs/RESEARCH_2.md](docs/RESEARCH_2.md) を参照。
+
+RESEARCH 3.0の本文取得・企画評価・利用回数制限は [docs/RESEARCH_3.md](docs/RESEARCH_3.md) を参照。

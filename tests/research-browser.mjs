@@ -81,7 +81,9 @@ try {
     }
     return route.fulfill({ json: { jobs: [] } });
   });
-  await page.goto("http://localhost:8080/#research");
+  await page.goto(
+    (process.env.BASE_URL || "http://localhost:8080") + "/#research",
+  );
   await page.waitForSelector("#research-tools");
   assert.equal(collected, 0);
   assert.match(await page.locator("#research-status").innerText(), /未取得/);
@@ -105,24 +107,22 @@ try {
     .nth(1)
     .locator("summary")
     .click();
-  await page
-    .locator("#research-import")
-    .setInputFiles({
-      name: "compare.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        JSON.stringify([
-          {
-            title: "比較サービス",
-            text: "<img src=x onerror=alert(1)>特徴メモ",
-            sourceUrl: "https://example.com/service",
-            price: "月額0円（利用者記録）",
-            fetchedAt: "1999-01-01",
-            verification: "source_observed",
-          },
-        ]),
-      ),
-    });
+  await page.locator("#research-import").setInputFiles({
+    name: "compare.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      JSON.stringify([
+        {
+          title: "比較サービス",
+          text: "<img src=x onerror=alert(1)>特徴メモ",
+          sourceUrl: "https://example.com/service",
+          price: "月額0円（利用者記録）",
+          fetchedAt: "1999-01-01",
+          verification: "source_observed",
+        },
+      ]),
+    ),
+  });
   await page.waitForFunction(
     () => document.querySelectorAll(".research-record").length === 2,
   );
@@ -133,15 +133,13 @@ try {
     /1999-01-01/,
   );
   const before = await page.locator(".research-record").count();
-  await page
-    .locator("#research-import")
-    .setInputFiles({
-      name: "bad.json",
-      mimeType: "application/json",
-      buffer: Buffer.from(
-        '[{"title":"bad","text":"bad","sourceUrl":"http://127.0.0.1"}]',
-      ),
-    });
+  await page.locator("#research-import").setInputFiles({
+    name: "bad.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(
+      '[{"title":"bad","text":"bad","sourceUrl":"http://127.0.0.1"}]',
+    ),
+  });
   await page.waitForFunction(() =>
     document.querySelector("#status").textContent.includes("取り込み失敗"),
   );
@@ -162,22 +160,34 @@ try {
   await page.waitForFunction(
     () => document.querySelectorAll(".research-record").length === 3,
   );
-  for (const checkbox of await page
-    .locator(".research-record input[type=checkbox]")
-    .all())
-    await checkbox.check();
+  await page
+    .locator(".research-record")
+    .filter({ hasText: "AI政策のお知らせ" })
+    .getByRole("button", { name: "内容・出典を確認済みにする" })
+    .click();
+  await page
+    .locator(".research-record")
+    .filter({ hasText: "比較サービス" })
+    .getByRole("button", { name: "内容・出典を確認済みにする" })
+    .click();
+  for (const title of ["AI政策のお知らせ", "比較サービス"])
+    await page
+      .locator(".research-record")
+      .filter({ hasText: title })
+      .locator("input[type=checkbox]")
+      .check();
   await page.locator("#research-to-content").click();
   await page.waitForSelector("#content-evidence");
   assert.match(
     await page.locator("#content-evidence-list").innerText(),
-    /仮説/,
+    /利用者確認/,
   );
-  assert.equal(await page.locator("#content-evidence-list li").count(), 3);
+  assert.equal(await page.locator("#content-evidence-list li").count(), 2);
   await page.locator("#generate").click();
   await page.waitForFunction(() =>
     document.querySelector("#output").value.includes("入力された調査資料"),
   );
-  assert.match(prompt, /RESEARCH 2.0/);
+  assert.match(prompt, /RESEARCH 3.0/);
   assert.match(prompt, /https:\/\/www.digital.go.jp\/news\/test/);
   assert.match(prompt, /未検証/);
   assert.match(
@@ -190,10 +200,10 @@ try {
   await page.waitForFunction(
     () => document.querySelector("#db-status").textContent === "取得成功",
   );
-  assert.match(cloudBody.context, /RESEARCH 2.0/);
+  assert.match(cloudBody.context, /RESEARCH 3.0/);
   await page.reload();
   await page.waitForSelector("#content-evidence");
-  assert.equal(await page.locator("#content-evidence-list li").count(), 3);
+  assert.equal(await page.locator("#content-evidence-list li").count(), 2);
   await page.locator("nav [data-page=research]").click();
   assert.equal(await page.locator(".research-record").count(), 3);
   fail = true;

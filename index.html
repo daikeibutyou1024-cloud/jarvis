@@ -99,11 +99,11 @@
         <p id="dept-description" class="intro"></p>
         <section id="research-tools" class="panel" hidden>
           <div class="section-heading">
-            <h2>RESEARCH 2.0 / 根拠を集める</h2>
+            <h2>RESEARCH 3.0 / 根拠と企画をつなぐ</h2>
             <span class="badge">追加契約・カード登録なし</span>
           </div>
           <p class="hint">
-            note記事と商品比較の材料を集めます。RSSは直近配信の絞り込み、GitHubは公開リポジトリ検索です。Web全体・商品価格・売上・報酬条件の自動取得は未接続です。取得した情報も真偽の保証ではありません。
+            note記事と商品比較の材料を集めます。RSSは直近配信の絞り込み、GitHubは公開リポジトリ検索です。Web全体・Amazon等の商品価格・売上・報酬条件の自動取得は未接続です。公式RSS掲載の許可ページはrobots.txtを確認して本文取得できます。対象はデジタル庁の/news/と消費者庁の/notice/entry/です。取得した情報も真偽の保証ではありません。
           </p>
           <form id="research-form" class="research-form">
             <label
@@ -150,7 +150,7 @@
               target="_blank"
               rel="noopener noreferrer"
               >GitHub</a
-            >。RSS見出し・短い配信要約・APIメタ情報のみ記録します。転載・画像利用・ライセンスは各出典で確認してください。
+            >。RSS見出し・配信要約・APIメタ情報と、許可ページの本文テキスト（最大12000文字）を記録します。本文取得は各8秒・1MB、robots確認が必要です。転載・画像利用・ライセンスは各出典で確認してください。
           </p>
           <details>
             <summary>商品・サービスの比較資料を手入力</summary>
@@ -227,12 +227,26 @@
             ><button id="research-export">比較資料をJSONで出力</button>
           </div>
           <div id="research-records"></div>
+          <section class="panel">
+            <h3>記事テーマの提案・評価</h3>
+            <p class="hint">
+              テーマを入力し、利用者確認済みの事実資料を1〜5件選択してください。既存Claudeで最大3企画を提案します。需要・差別化・収益化・根拠の評価はすべてAI仮説（1〜5）で、検索量・競合売上等の実測ではありません。
+            </p>
+            <button id="research-propose" class="primary">
+              Claudeで企画提案（1日2回まで）
+            </button>
+            <p class="hint">
+              AI利用は会話・生成・企画の合計で1日10回まで（UTC・失敗含む）。新しい有料APIは使いません。
+            </p>
+            <div id="research-plans"></div>
+          </section>
         </section>
         <section id="content-evidence" class="panel" hidden>
           <h3>RESEARCHから引き継いだ資料</h3>
           <p id="content-evidence-empty" class="hint">
             未取得・未選択。RESEARCHで資料を選んで引き継げます。
           </p>
+          <p id="content-plan" class="research-text"></p>
           <ul id="content-evidence-list"></ul>
           <p class="hint">
             次のAI生成に自動添付します。元の取得日時を保持したスナップショットで、最新情報ではありません。下書き保存時も出典記録を本文末尾に残します。
@@ -257,6 +271,8 @@
               /><label for="format">制作形式</label
               ><select id="format">
                 <option>note記事</option>
+                <option>note無料記事</option>
+                <option>note有料記事</option>
                 <option>アフィリエイト比較記事</option>
                 <option>X投稿</option>
                 <option>Instagram投稿</option>
@@ -279,7 +295,7 @@
                 </button>
               </div>
               <p class="hint">
-                クラウド生成は全体で1日5件まで（UTC・失敗分含む）。通常生成にもAPI料金が発生します。
+                クラウド生成は1日5件、企画は2回、会話・通常生成も含むAI利用合計は1日10回まで（UTC・失敗分含む）。既存API料金が発生します。
               </p>
             </form>
           </section>

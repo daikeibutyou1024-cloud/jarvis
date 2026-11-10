@@ -1,3 +1,4 @@
+import { formats, planPacket } from "../lib/research-ideas.js";
 import {
   sourceCatalog,
   referenceUrl,
@@ -7,7 +8,20 @@ import {
 } from "./research-data.js";
 const STORE = "jarvis_research_records_v2",
   HANDOFF = "jarvis_research_handoff_v2";
-export function initResearch({ request, navigate, say, brief, write, read }) {
+export function initResearch({
+  request,
+  navigate,
+  say,
+  brief,
+  write,
+  read,
+  persistBrief = () => {},
+}) {
+  const PLANS = "jarvis_research_plans_v3",
+    PLAN_HANDOFF = "jarvis_research_plan_handoff_v3";
+  let plans = read(PLANS, []),
+    selectedPlan = read(PLAN_HANDOFF, null);
+  if (!Array.isArray(plans)) plans = [];
   const $ = (id) => document.getElementById(id);
   let records = read(STORE, []),
     handoff = read(HANDOFF, []),
@@ -23,7 +37,11 @@ export function initResearch({ request, navigate, say, brief, write, read }) {
     ["fact", "hypothesis"].includes(r.kind) &&
     (!r.sourceUrl || referenceUrl(r.sourceUrl));
   records = Array.isArray(records) ? records.filter(valid).slice(0, 100) : [];
-  handoff = Array.isArray(handoff) ? handoff.filter(valid).slice(0, 5) : [];
+  handoff = Array.isArray(handoff)
+    ? handoff
+        .filter((r) => valid(r) && r.kind === "fact" && r.reviewedAt)
+        .slice(0, 5)
+    : [];
   function save(next) {
     if (next.length > 100) {
       say("資料は100件までです。不要な資料を削除してから保存してください");
@@ -118,7 +136,86 @@ export function initResearch({ request, navigate, say, brief, write, read }) {
           );
         }
       };
-      article.append(label, tag, text, compare, source, meta, del);
+      const review = document.createElement("button");
+      review.textContent = r.reviewedAt
+        ? "利用者確認済み（解除）"
+        : "内容・出典を確認済みにする";
+      review.disabled = r.kind !== "fact";
+      review.onclick = () => {
+        save(
+          records.map((x) =>
+            x.id === r.id
+              ? {
+                  ...x,
+                  reviewedAt: x.reviewedAt ? null : new Date().toISOString(),
+                }
+              : x,
+          ),
+        );
+        say("確認は利用者の記録です。取得情報の真偽を保証しません。");
+      };
+      const body = document.createElement("details"),
+        summary = document.createElement("summary"),
+        bodyText = document.createElement("p");
+      summary.textContent = r.bodyFetchedAt
+        ? `本文取得済み / ${r.bodyFetchedAt}${r.bodyTruncated ? "（先頭12000文字）" : ""}`
+        : `本文：未取得${r.bodyError ? " / " + r.bodyError : ""}`;
+      bodyText.className = "research-text";
+      bodyText.textContent =
+        r.bodyText || "本文は未取得です。RSS見出しと本文を区別してください。";
+      body.append(summary, bodyText);
+      article.append(label, tag, text, compare, source, meta, body, review);
+      if (["digital", "caa"].includes(r.origin)) {
+        const get = document.createElement("button");
+        get.textContent = "許可ページの本文を取得";
+        get.onclick = async () => {
+          get.disabled = true;
+          try {
+            const data = await request(
+              "/api/research/article?" +
+                new URLSearchParams({ url: r.sourceUrl }),
+            );
+            save(
+              records.map((x) =>
+                x.id === r.id
+                  ? {
+                      ...x,
+                      bodyText: data.status === "acquired" ? data.text : "",
+                      bodyFetchedAt: data.fetchedAt,
+                      bodyTruncated: !!data.truncated,
+                      bodyError: data.error || "",
+                      reviewedAt: null,
+                    }
+                  : x,
+              ),
+            );
+            say(
+              data.status === "acquired"
+                ? "本文を取得しました。内容を確認してから確認済みにしてください"
+                : "本文は未取得：" + (data.error || "取得失敗"),
+            );
+          } catch (e) {
+            save(
+              records.map((x) =>
+                x.id === r.id
+                  ? {
+                      ...x,
+                      bodyText: "",
+                      bodyFetchedAt: null,
+                      bodyError: e.message,
+                      reviewedAt: null,
+                    }
+                  : x,
+              ),
+            );
+            say("本文は未取得：" + e.message);
+          } finally {
+            get.disabled = false;
+          }
+        };
+        article.append(get);
+      }
+      article.append(del);
       root.append(article);
     }
   }
@@ -127,11 +224,14 @@ export function initResearch({ request, navigate, say, brief, write, read }) {
     root.replaceChildren();
     for (const r of handoff) {
       const li = document.createElement("li");
-      li.textContent = `${r.title} / ${type(r)} / 取得：${r.fetchedAt || "未取得"}`;
+      li.textContent = `${r.title} / 利用者確認：${r.reviewedAt || "未確認"} / ${type(r)} / 取得：${r.fetchedAt || "未取得"}`;
       if (r.sourceUrl) li.append(" ", link(r.sourceUrl, "出典"));
       root.append(li);
     }
     $("content-evidence-empty").hidden = handoff.length > 0;
+    $("content-plan").textContent = selectedPlan
+      ? planPacket(selectedPlan)
+      : "選択企画は未取得です。RESEARCHで企画を選べます。";
   }
   $("research-form").onsubmit = async (e) => {
     e.preventDefault();
@@ -244,36 +344,146 @@ export function initResearch({ request, navigate, say, brief, write, read }) {
       say(error.message);
     }
   };
-  $("research-to-content").onclick = () => {
+  function sendToContent(plan = null) {
     try {
-      const chosen = records.filter((r) => selected.has(r.id));
-      if (!chosen.length) throw Error("CONTENTに渡す資料を選択してください");
-      researchPacket(chosen);
-      if (!write(HANDOFF, chosen)) return;
+      const chosen = plan
+        ? plan.sourceIds.map((id) => records.find((r) => r.id === id))
+        : records.filter((r) => selected.has(r.id));
+      if (
+        !chosen.length ||
+        chosen.some((r) => !r || r.kind !== "fact" || !r.reviewedAt)
+      )
+        throw Error(
+          "CONTENTには利用者が確認済みの事実資料だけを渡せます。資料を確認してください",
+        );
+      if (
+        plan &&
+        chosen.some(
+          (r) =>
+            !plan.evidence.some(
+              (e) => e.id === r.id && e.reviewedAt === r.reviewedAt,
+            ),
+        )
+      )
+        throw Error("資料が更新されています。再確認・再提案してください");
+      const packet =
+        researchPacket(chosen) + (plan ? "\n" + planPacket(plan) : "");
+      if (packet.length > 3500)
+        throw Error("資料と企画が3500文字を超えます。資料を短くしてください");
+      if (!write(HANDOFF, chosen) || !write(PLAN_HANDOFF, plan)) return;
       handoff = structuredClone(chosen);
+      selectedPlan = plan;
       renderHandoff();
       navigate("content");
+      if (plan) {
+        $("topic").value = plan.title;
+        $("format").value = {
+          note_free: "note無料記事",
+          note_paid: "note有料記事",
+          affiliate: "アフィリエイト比較記事",
+        }[plan.format];
+      }
+      persistBrief();
       say(
-        "選択資料をCONTENTへ引き継ぎました。形式を選び「AIで作成」で記事下書きを生成できます。",
+        "確認済み資料と企画をCONTENTへ引き継ぎました。下書き生成はAPI利用回数を消費します。",
       );
     } catch (error) {
       say(error.message);
+    }
+  }
+  $("research-to-content").onclick = () => sendToContent();
+  function renderPlans() {
+    const root = $("research-plans");
+    root.replaceChildren();
+    if (!plans.length)
+      root.textContent =
+        "企画は未取得です。確認済み資料を選んで提案してください。";
+    const labels = {
+      demand: "読者需要",
+      differentiation: "競合との差別化",
+      monetization: "収益化の可能性",
+      evidence: "根拠の充実度",
+    };
+    for (const plan of plans) {
+      if (!plan || !plan.scores || !Array.isArray(plan.sourceIds)) continue;
+      const card = document.createElement("article");
+      card.className = "research-record";
+      const title = document.createElement("h3");
+      title.textContent = plan.title + " / AI仮説";
+      const prose = document.createElement("p");
+      prose.textContent = `${formats[plan.format]} / ${plan.reader} / ${plan.angle} / ${plan.reason}`;
+      const ul = document.createElement("ul");
+      for (const [key, label] of Object.entries(labels)) {
+        const li = document.createElement("li");
+        li.textContent = `${label}：${plan.scores[key]?.score}/5（AI仮説・実測ではない） / ${plan.scores[key]?.reason || "未取得"}`;
+        ul.append(li);
+      }
+      const refs = document.createElement("p");
+      refs.className = "hint";
+      refs.textContent = `根拠資料${plan.sourceIds.length}件 / ${plan.createdAt} / 価格・売上・報酬額・実測需要は未取得`;
+      const b = document.createElement("button");
+      b.textContent = "この企画と確認済み資料でCONTENTへ";
+      b.onclick = () => sendToContent(plan);
+      card.append(title, prose, ul, refs, b);
+      root.append(card);
+    }
+  }
+  $("research-propose").onclick = async () => {
+    const button = $("research-propose");
+    button.disabled = true;
+    try {
+      const chosen = records.filter((r) => selected.has(r.id));
+      if (
+        !chosen.length ||
+        chosen.some((r) => r.kind !== "fact" || !r.reviewedAt)
+      )
+        throw Error("利用者確認済みの事実資料を1〜5件選択してください");
+      const topic = brief().topic;
+      if (!topic) throw Error("制作ブリーフにテーマを入力してください");
+      const data = await request("/api/research/ideas", "POST", {
+        topic,
+        records: chosen.map((r) => ({
+          ...r,
+          bodyText: (r.bodyText || "").slice(0, 700),
+        })),
+      });
+      if (!Array.isArray(data.ideas))
+        throw Error(data.error || "企画は未取得です");
+      if (write(PLANS, data.ideas)) {
+        plans = data.ideas;
+        renderPlans();
+        say("企画を生成しました。全評価はAI仮説であり収益を保証しません。");
+      }
+    } catch (error) {
+      say("企画は未取得：" + error.message);
+    } finally {
+      button.disabled = false;
     }
   };
   $("content-evidence-clear").onclick = () => {
     if (write(HANDOFF, [])) {
       handoff = [];
+      selectedPlan = null;
+      write(PLAN_HANDOFF, null);
       renderHandoff();
       say("CONTENTへの資料引き継ぎを解除しました");
     }
   };
   render();
   renderHandoff();
+  renderPlans();
   return {
     context(dept) {
       if (dept === "research")
         return researchPacket(records.filter((r) => selected.has(r.id)));
-      if (dept === "content" && handoff.length) return researchPacket(handoff);
+      if (dept === "content" && handoff.length) {
+        const packet =
+          researchPacket(handoff) +
+          (selectedPlan ? "\n" + planPacket(selectedPlan) : "");
+        if (packet.length > 3500)
+          throw Error("企画・資料が3500文字を超えています");
+        return packet;
+      }
       return "";
     },
   };
