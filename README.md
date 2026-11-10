@@ -4,20 +4,21 @@
 
 ## 構成と機能
 - `index.html` / `assets/`: 5部門、青い球体、音声入力・読み上げ、AI会話、編集可能な下書き。
-- RESEARCH: 調査計画・商品比較・競合仮説。検索・URL取得なし。
+- RESEARCH 2.0: 官公庁RSS・GitHub公開情報の取得、比較資料の手入力・JSON/CSV取り込み、出典記録とCONTENT引き継ぎ。任意URLの自動取得なし。
 - CONTENT: note・アフィリエイト記事・X・Instagram・TikTokの下書き。
 - MARKETING: 集客・CTA・広告導線の設計。投稿・提携登録なし。
 - ANALYTICS: 月次アクセス・クリック・成果を手入力、CTR・成果率を集計。端末保存。
 - FINANCE: 円建ての売上・経費・API費用を手入力、累計利益を集計。API費用自動取得なし。端末保存。
 - `functions/api/chat.js`: 既存認証・Claude既定・OpenAI切替を維持。
+- `functions/api/research/collect.js`: 固定接続先の無料取得・D1共有制限・キャッシュ（詳細はdocs/RESEARCH_2.md）。
 - `functions/api/business/jobs.js`: 全部門のAI下書きを既存D1のbusiness_jobsへ保存・最新20件取得。
 - `business-lab.html`: CONTENTへの移動用に保持。
 
 ## ローカル開発
 静的表示のみ: `python3 -m http.server 8080`。
 API付き: `npx wrangler pages dev . --d1 JARVIS_DB --persist-to work/d1`（Wranglerが必要）。
-既存のWrangler設定がある環境では、その設定のD1 IDを使ってローカルD1に `migrations/0001_business_jobs.sql` を適用してから使用。設定のない環境ではローカル専用のD1設定を用意し、Pages側と同じID・保存先を指定する。リモートDBへ自動適用しない。
-`npm test` で単体テスト。ブラウザ検証は `node tests/browser.mjs`（Playwrightが必要、静的サーバーを8080で起動）。
+既存のWrangler設定がある環境では、その設定のD1 IDを使ってローカルD1に `migrations/0001_business_jobs.sql` を適用してから使用。設定のない環境ではローカル専用のD1設定を用意し、Pages側と同じID・保存先を指定する。business_jobsのリモートDBへの自動適用はしない。RESEARCH用の独立テーブルは認証付き取得の初回に作成する。
+`npm ci` → `npm test` で単体テスト（Node.js 22.13以降、開発では24）。ブラウザ検証は `node tests/browser.mjs` と `node tests/research-browser.mjs`（Playwright・Chromiumが必要、静的サーバーを8080で起動）。
 
 ## Cloudflare設定（既存名を維持）
 - `JARVIS_ACCESS_PASSWORD`: 共通認証パスワード。
@@ -32,4 +33,6 @@ API付き: `npx wrangler pages dev . --d1 JARVIS_DB --persist-to work/d1`（Wran
 
 ## 検証の限界
 実API課金・本番認証・リモートD1・音声デバイスはローカルの模擬テストでは検証できない。
-Preview連携の設定次第ではpushで自動デプロイされるため、この変更ではpush・公開は行わない。
+Preview連携により開発ブランチへのpushでPreviewを更新する。本番mainへのpush・マージ・本番公開は行わない。
+
+RESEARCH 2.0の利用手順・取り込み仕様・制限・検証範囲は [docs/RESEARCH_2.md](docs/RESEARCH_2.md) を参照。

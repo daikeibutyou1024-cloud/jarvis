@@ -117,7 +117,7 @@ export async function onRequestPost({ request, env }) {
         body[field] !== undefined &&
         (typeof body[field] !== "string" ||
           body[field].length >
-            { audience: 160, format: 80, notes: 2500, context: 1200 }[field])
+            { audience: 160, format: 80, notes: 2500, context: 3500 }[field])
       )
         return json({ error: "入力が長すぎるか形式が不正です" }, 400);
     }
@@ -126,6 +126,11 @@ export async function onRequestPost({ request, env }) {
       { ...body, topic },
       body.context || "",
     );
+    if (prompt.length > 6000)
+      return json(
+        { error: "指示が6000文字を超えます。メモや選択資料を減らしてください" },
+        400,
+      );
     // Daily cost guardrail (UTC): maximum five attempted generations.
     id = crypto.randomUUID();
     const reservation = await env.JARVIS_DB.prepare(
@@ -137,7 +142,12 @@ export async function onRequestPost({ request, env }) {
       id = null;
       return json({ error: "本日の生成上限（5件）に達しました" }, 429);
     }
-    const output = await createDraft(env, prompt);
+    const answer = await createDraft(env, prompt);
+    const evidence = body.context || "";
+    const output =
+      answer && evidence.startsWith("【RESEARCH 2.0")
+        ? answer + "\n\n--- 入力された調査資料（内容は要確認） ---\n" + evidence
+        : answer;
     if (!output) throw new Error("empty response");
     await env.JARVIS_DB.prepare(
       "UPDATE business_jobs SET status='draft',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",

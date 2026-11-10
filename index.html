@@ -80,7 +80,7 @@
           <div class="connection-grid">
             <p>AI API <strong id="ai-status">未確認</strong></p>
             <p>D1クラウド保存 <strong id="db-status">未確認</strong></p>
-            <p>検索・SNS・成果連携 <strong>未接続</strong></p>
+            <p>外部調査 <strong>RSS・GitHubは操作時に確認</strong></p>
             <p>端末保存 <strong id="storage-status">確認中</strong></p>
           </div>
           <p class="hint">
@@ -97,6 +97,148 @@
           <span class="badge" id="dept-mode"></span>
         </div>
         <p id="dept-description" class="intro"></p>
+        <section id="research-tools" class="panel" hidden>
+          <div class="section-heading">
+            <h2>RESEARCH 2.0 / 根拠を集める</h2>
+            <span class="badge">追加契約・カード登録なし</span>
+          </div>
+          <p class="hint">
+            note記事と商品比較の材料を集めます。RSSは直近配信の絞り込み、GitHubは公開リポジトリ検索です。Web全体・商品価格・売上・報酬条件の自動取得は未接続です。取得した情報も真偽の保証ではありません。
+          </p>
+          <form id="research-form" class="research-form">
+            <label
+              >情報源<select id="research-source">
+                <option value="digital">デジタル庁RSS</option>
+                <option value="caa">消費者庁RSS</option>
+                <option value="github">GitHub公開API</option>
+              </select></label
+            ><label
+              >キーワード<input
+                id="research-query"
+                required
+                minlength="1"
+                maxlength="80"
+                placeholder="例：AI、広告、automation" /></label
+            ><button id="research-collect" class="primary">
+              無料の情報源から取得
+            </button>
+          </form>
+          <p id="research-status" role="status">
+            未取得（まだ取得していません）
+          </p>
+          <p id="research-scope" class="hint"></p>
+          <p class="hint">
+            外部取得は8秒・1MBまで。同じ情報源は1分間隔、全体20回/時。GitHub8回/時・各RSS6回/時。RSSキャッシュ1時間・GitHub6時間。提供元の制限時は待機し、有料サービスへ切り替えません。
+          </p>
+          <p class="hint">
+            配信元・利用条件：<a
+              href="https://www.digital.go.jp/rss"
+              target="_blank"
+              rel="noopener noreferrer"
+              >デジタル庁</a
+            >
+            /
+            <a
+              href="https://www.caa.go.jp/rss/"
+              target="_blank"
+              rel="noopener noreferrer"
+              >消費者庁</a
+            >
+            /
+            <a
+              href="https://docs.github.com/en/site-policy/github-terms/github-terms-of-service"
+              target="_blank"
+              rel="noopener noreferrer"
+              >GitHub</a
+            >。RSS見出し・短い配信要約・APIメタ情報のみ記録します。転載・画像利用・ライセンスは各出典で確認してください。
+          </p>
+          <details>
+            <summary>商品・サービスの比較資料を手入力</summary>
+            <form id="research-manual-form">
+              <label
+                >商品・サービス名 / 資料名<input
+                  name="title"
+                  maxlength="160"
+                  required /></label
+              ><label
+                >仕様・比較材料・根拠<textarea
+                  name="text"
+                  maxlength="1000"
+                  rows="4"
+                  required
+                ></textarea>
+              </label>
+              <div class="research-form">
+                <label
+                  >区分<select name="kind">
+                    <option value="fact">事実主張（手入力・未検証）</option>
+                    <option value="hypothesis">仮説（推測）</option>
+                  </select></label
+                ><label
+                  >出典URL（任意）<input
+                    name="sourceUrl"
+                    type="url"
+                    maxlength="400"
+                    placeholder="https://..."
+                /></label>
+              </div>
+              <div class="research-form">
+                <label
+                  >価格・確認条件（任意）<input
+                    name="price"
+                    maxlength="160"
+                    placeholder="空欄は未取得" /></label
+                ><label
+                  >アフィリエイト条件（任意）<input
+                    name="affiliate"
+                    maxlength="300"
+                    placeholder="公式の条件・確認日など。空欄は未取得"
+                /></label>
+              </div>
+              <button class="primary">比較資料を端末に記録</button>
+              <p class="hint">
+                入力URLは自動取得しません。手入力の記録日時と外部取得日時を区別します。
+              </p>
+            </form>
+          </details>
+          <details>
+            <summary>JSON・CSVファイルを取り込む</summary>
+            <p class="hint">
+              UTF-8・100KB・最大50件。列名：title,text,sourceUrl,kind,price,affiliate。titleとtextは必須。kindはfactまたはhypothesis。ファイルの取得済み表示や日時は信用せず、未検証の取り込みとして記録します。
+            </p>
+            <label
+              >比較資料ファイル<input
+                id="research-import"
+                type="file"
+                accept=".json,.csv" /></label
+            ><button id="research-template">CSV見本をダウンロード</button>
+          </details>
+          <div class="section-heading">
+            <h3>調査ノート / この端末に保存</h3>
+            <span id="research-count"></span>
+          </div>
+          <p class="hint">
+            100件まで。再取得した同一出典は更新します。選択資料をAIの分析・CONTENT生成に使用します。AIの出力は事実に自動変換しません。
+          </p>
+          <div class="actions">
+            <button id="research-to-content" class="primary">
+              選択資料をCONTENTへ引き継ぐ</button
+            ><button id="research-ai-save">AI結果を仮説として記録</button
+            ><button id="research-export">比較資料をJSONで出力</button>
+          </div>
+          <div id="research-records"></div>
+        </section>
+        <section id="content-evidence" class="panel" hidden>
+          <h3>RESEARCHから引き継いだ資料</h3>
+          <p id="content-evidence-empty" class="hint">
+            未取得・未選択。RESEARCHで資料を選んで引き継げます。
+          </p>
+          <ul id="content-evidence-list"></ul>
+          <p class="hint">
+            次のAI生成に自動添付します。元の取得日時を保持したスナップショットで、最新情報ではありません。下書き保存時も出典記録を本文末尾に残します。
+          </p>
+          <button id="content-evidence-clear">引き継ぎを解除</button>
+        </section>
         <div class="workspace-grid">
           <section class="panel">
             <h3>制作ブリーフ</h3>
@@ -127,7 +269,7 @@
                 placeholder="確認済みの情報、出典、避けたい表現など"
               ></textarea>
               <p class="hint">
-                全部門で入力を共有します。URLの自動閲覧・最新情報の検索は行いません。
+                全部門で入力を共有します。任意URLの自動閲覧は行いません。RESEARCHでは許可したRSS・GitHubのみ取得できます。
               </p>
               <div class="actions">
                 <button type="submit" class="primary" id="generate">

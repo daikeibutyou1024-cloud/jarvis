@@ -638,3 +638,71 @@ dialog::backdrop {
     scroll-behavior: auto !important;
   }
 }
+/* RESEARCH 2.0 */
+.research-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 14px 0;
+}
+.research-form label {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+.research-form input,
+.research-form select {
+  margin-top: 7px;
+}
+details {
+  border-top: 1px solid var(--line);
+  padding: 14px 0;
+}
+summary {
+  cursor: pointer;
+  color: var(--cyan);
+}
+.research-record {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 14px 0;
+  overflow-wrap: anywhere;
+}
+.research-record label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text);
+}
+.research-record input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.research-record p {
+  margin: 8px 0;
+}
+.research-text {
+  white-space: pre-wrap;
+}
+.research-record a,
+#content-evidence a {
+  color: var(--cyan);
+  overflow-wrap: anywhere;
+}
+#research-tools a {
+  color: var(--cyan);
+}
+#research-tools button {
+  margin-top: 8px;
+}
+#research-status {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#content-evidence-list li {
+  overflow-wrap: anywhere;
+}
