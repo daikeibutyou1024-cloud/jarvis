@@ -18,7 +18,7 @@
 静的表示のみ: `python3 -m http.server 8080`。
 API付き: `npx wrangler pages dev . --d1 JARVIS_DB --persist-to work/d1`（Wranglerが必要）。
 既存のWrangler設定がある環境では、その設定のD1 IDを使ってローカルD1に `migrations/0001_business_jobs.sql` を適用してから使用。設定のない環境ではローカル専用のD1設定を用意し、Pages側と同じID・保存先を指定する。business_jobsのリモートDBへの自動適用はしない。RESEARCH用の独立テーブルは認証付き取得の初回に作成する。
-`npm ci` → `npm test` で単体テスト（Node.js 22.13以降、開発では24）。ブラウザ検証は `node tests/browser.mjs` と `node tests/research-browser.mjs`（Playwright・Chromiumが必要、静的サーバーを8080で起動）。
+`npm test` で単体テスト（Node.js 22.13以降、開発では24）。ブラウザ検証は `node tests/browser.mjs` と `node tests/research-browser.mjs`（Playwright・Chromiumが必要、静的サーバーを8080で起動）。
 
 ## Cloudflare設定（既存名を維持）
 - `JARVIS_ACCESS_PASSWORD`: 共通認証パスワード。

@@ -50,9 +50,11 @@ GitHub制限: https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for
 GitHub規約: https://docs.github.com/en/site-policy/github-terms/github-terms-of-service
 
 ## 検証
-`npm ci` → `npm test`。テストはnode:sqliteを使うためNode.js 22.13以降（開発では24）。
+`npm test`（ランタイム依存の追加インストール不要）。テストはnode:sqliteを使うためNode.js 22.13以降（開発では24）。
 静的サーバーを8080で起動し `node tests/browser.mjs` と `node tests/research-browser.mjs`（PlaywrightとChromiumが必要）。
 Cloudflare Functionsのビルドも検証。テスト内の外部取得・AIは模擬応答を使用し、実課金なし。
 開発環境の送信先ポリシーでは官公庁RSSへの直接接続が拒否されるため、実RSS本文の疎通はこの環境では未検証。Previewデプロイ成功は実取得成功と区別する。
 
 今回の確認結果: 単体テスト25件成功、既存5部門とRESEARCHのブラウザ操作（390/768/1440px）成功、Cloudflare Functionsビルド成功。ローカルWorkerで認証拒否・入力制限・D1初期化・未取得応答とキャッシュを確認。依存パッケージのnpm auditは既知脆弱性0件。
+
+Previewビルドの環境差を避けるため、XMLパーサーはレビューしたバージョンの自己完結ESMをvendor/xmlへ同梱。各パッケージのバージョン・MITライセンスを保持し、node_modulesなしのFunctionsビルドと全テストを検証する。

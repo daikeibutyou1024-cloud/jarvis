@@ -1,4 +1,4 @@
-import { XMLParser, XMLValidator } from "fast-xml-parser";
+import { XMLParser, XMLValidator } from "../../../vendor/xml/parser.js";
 import { sourceCatalog, referenceUrl } from "../../../assets/research-data.js";
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
