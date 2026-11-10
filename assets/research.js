@@ -499,6 +499,7 @@ export function initResearch({
   renderHandoff();
   renderPlans();
   return {
+    snapshot(){return {evidence:this.context("content"),idea:selectedPlan?planPacket(selectedPlan):""};},
     context(dept) {
       if (dept === "research")
         return researchPacket(records.filter((r) => selected.has(r.id)));

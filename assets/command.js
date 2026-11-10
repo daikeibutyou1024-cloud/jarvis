@@ -1,3 +1,5 @@
+import {initEditorial} from "./editorial.js";
+import {compactGeneration} from "../lib/editorial.js";
 import { saveLocalDraft } from "../lib/local-drafts.js";
 import { chapterPlan } from "../lib/paid-chapter.js";
 import {
@@ -69,7 +71,7 @@ let page = "overview",
   authPending = null;
 let currentDocument = {projectId:crypto.randomUUID(),revision:0}, localRevision = 0;
 const history = [];
-let research = null;
+let research = null, editorial = null, currentWorkflow = null, selectedEditorialSection = "";
 let currentGeneration = null,
   currentEvidence = "";
 // Retire the former persistent password cache. Authentication remains unchanged on the server.
@@ -164,6 +166,7 @@ function navigate(next) {
     $("finance-tools").hidden = page !== "finance";
     $("format").disabled = page !== "content";
   }
+  $("editorial-panel").hidden = page !== "content";
   $("content-generation-tools").hidden = page !== "content";
   $("content-continue-tools").hidden = page !== "content";
   $("generation-status").hidden = page !== "content";
@@ -223,12 +226,18 @@ function setOutput(
   generation = null,
   evidence = "",
   document = null,
+  workflow = null,
+  savedVersion = false,
 ) {
+  generation=generation?structuredClone(generation):null;
+  workflow=workflow?structuredClone(workflow):null;
   const legacyPaid =
     dept === "content" &&
     !generation?.project &&
     $("format").value === PAID_FORMAT;
   if (legacyPaid) reviewed = false;
+  currentWorkflow=workflow;
+  selectedEditorialSection="";
   currentDocument=document || generation?.document || {projectId:generation?.project?.id || crypto.randomUUID(),revision:0};
   localRevision=0;
   $("output").value = text;
@@ -248,6 +257,7 @@ function setOutput(
       at: currentGeneration.project.humanReview?.at || new Date().toISOString(),
     };
   reviewLabel();
+  editorial?.observeDocument(workflow,savedVersion);
 }
 function refreshPaid(render = false) {
   if (
@@ -261,7 +271,7 @@ function refreshPaid(render = false) {
     return;
   const old = currentGeneration?.project;
   const project = inspectPaid($("output").value, currentEvidence, old);
-  if (department === "content") {
+  if (department === "content" && !currentWorkflow) {
     try {
       const latest = context();
       if (latest && latest !== currentEvidence)
@@ -341,6 +351,9 @@ $("output").addEventListener("input", () => {
 });
 function setBusy(value) {
   busy = value;
+  $("output").readOnly=value;
+  for(const id of ["topic","audience","notes","format","editorial-idea","editorial-outline","editorial-no-facts","editorial-clone","editorial-research","editorial-default-outline","editorial-save","editorial-load","editorial-approve","editorial-download"])$(id).disabled=value;
+  if(!value)$("format").disabled=department!=="content";
   for (const id of [
     "generate",
     "cloud-generate",
@@ -363,14 +376,14 @@ async function generate(cloud, continuation = false) {
       outputDepartment === "content" ? articleBody($("output").value) : "";
     const mode = continuation ? "continue" : $("content-generation-mode").value;
     const section = continuation
-      ? currentGeneration?.section || ""
+      ? selectedEditorialSection || currentGeneration?.section || ""
       : mode === "chapter"
         ? $("content-section").value.trim()
         : "";
     if (mode === "chapter" && !section) return say("章名を入力してください");
     if (mode === "continue" && !previous.trim())
       return say("続きの対象となる原稿がありません");
-    if (mode !== "full" && previous.length > 30000)
+    if (mode !== "full" && previous.length > 30000 && !(cloud && currentWorkflow && currentDocument.revision>0))
       return say("章・続き生成の既存原稿は30000文字以内です");
     options = {
       mode,
@@ -384,8 +397,10 @@ async function generate(cloud, continuation = false) {
     };
   }
   let evidence, prompt;
+  const useSavedDraft=cloud && !!currentWorkflow && currentDocument.revision>0 && options?.mode!=="full";
   try {
-    evidence = context();
+    if(cloud&&currentWorkflow)editorial.requireSaved();
+    evidence = currentWorkflow ? currentEvidence : context();
     if (options?.mode !== "full" && currentGeneration?.project) {
       const savedEvidence = currentGeneration.project.evidence;
       if (evidence && evidence !== savedEvidence)
@@ -420,7 +435,8 @@ async function generate(cloud, continuation = false) {
   );
   const dept = department;
   const priorLocalRevision=localRevision;
-  const targetDocument=options?.mode && options.mode!=="full"?{...currentDocument}:{projectId:crypto.randomUUID(),revision:0};
+  const draftWorkflow=currentWorkflow || (["note記事","note無料記事","note有料記事"].includes(b.format)?editorial?.rawWorkflow():null);
+  const targetDocument=currentWorkflow || (options?.mode && options.mode!=="full")?{...currentDocument}:{projectId:crypto.randomUUID(),revision:0};
   try {
     const data = cloud
       ? await request("/api/business/jobs", "POST", {
@@ -429,7 +445,8 @@ async function generate(cloud, continuation = false) {
           projectId:targetDocument.projectId,
           expectedRevision:targetDocument.revision,
           context: evidence,
-          ...(options ? { generation: options } : {}),
+          useSavedDraft,
+          ...(options ? { generation: useSavedDraft?{...options,previous:""}:options } : {}),
         })
       : await request("/api/chat", "POST", {
           prompt,
@@ -450,6 +467,9 @@ async function generate(cloud, continuation = false) {
       false,
       {...(data.generation || unknownGeneration()),document:data.generation?.document || targetDocument},
       evidence,
+      null,
+      data.workflow || draftWorkflow,
+      cloud,
     );
     if(targetDocument.projectId===currentDocument.projectId && options?.mode!=="full")localRevision=priorLocalRevision;
     reviewLabel();
@@ -476,7 +496,7 @@ async function generate(cloud, continuation = false) {
   } catch (e) {
     if(e.data?.recovery){
       const r=e.data.recovery;
-      setOutput(r.output,dept,false,r.generation,evidence,targetDocument);
+      setOutput(r.output,dept,false,r.generation,evidence,targetDocument,currentWorkflow);
     }
     say(e.message);
     if (cloud) $("db-status").textContent = "操作失敗 / 要確認";
@@ -560,6 +580,7 @@ function renderDrafts() {
     text.append(small);
     open.textContent = "開く";
     open.onclick = () => {
+      try{editorial?.assertCanReplace();}catch(e){say(e.message);return;}
       navigate(d.department in departments ? d.department : "content");
       for (const id of ["topic", "audience", "format", "notes"])
         if (typeof d[id] === "string") $(id).value = d[id];
@@ -570,8 +591,10 @@ function renderDrafts() {
         d.generation,
         d.evidence || "",
         d.document || d.generation?.document || null,
+        d.workflow || null,
       );
       localRevision=d.localRevision||0;
+      editorial?.markBackup();
       reviewLabel();
       for (const id of ["topic", "audience", "format", "notes"])
         if (typeof d[id] === "string") $(id).value = d[id];
@@ -598,37 +621,40 @@ $("save-draft").onclick = async () => {
   try{
     const saved=await saveLocalDraft(localStorage,navigator.locks,keys.drafts,{
       ...brief(),department:outputDepartment,date:new Date().toLocaleString("ja-JP"),text:$("output").value,
-      approved,generation:currentGeneration,evidence:currentEvidence,document:{...currentDocument},
+      approved,generation:currentGeneration,evidence:currentEvidence,workflow:["note記事","note無料記事","note有料記事"].includes(brief().format)?editorial?.rawWorkflow():null,document:{...currentDocument},
     },localRevision);
-    drafts=saved.rows;localRevision=saved.revision;renderDrafts();reviewLabel();say("この端末に新しい版を保存しました");
+    drafts=saved.rows;localRevision=saved.revision;editorial?.markBackup();renderDrafts();reviewLabel();say("この端末に新しい版を保存しました");
   }catch(e){say(e.message);}
 };
 window.addEventListener("storage",e=>{if(e.key===keys.drafts){drafts=read(keys.drafts,[]);renderDrafts();}});
 $("save-paid-cloud").onclick = async () => {
   if (busy || !$("output").value.trim()) return;
+  if(currentWorkflow||(["note記事","note無料記事","note有料記事"].includes(brief().format)&&editorial?.hasWorkflowEdits()))return $("editorial-save").onclick();
   refreshPaid(true);
   setBusy(true);
   try {
     const p=currentGeneration?.project;
     const d=await request(p?"/api/business/paid-drafts":"/api/business/drafts","POST",{
       id:currentDocument.projectId,projectId:currentDocument.projectId,expectedRevision:currentDocument.revision,
-      department:outputDepartment,format:brief().format,topic:$("topic").value,text:$("output").value,evidence:currentEvidence,
-      generation:currentGeneration,manualComplete:currentGeneration?.articleStatus==="manual_complete",approved,
+      ...brief(),department:outputDepartment,format:brief().format,topic:$("topic").value,text:$("output").value,evidence:currentEvidence,
+      generation:compactGeneration(currentGeneration),manualComplete:currentGeneration?.articleStatus==="manual_complete",approved,
     });
     currentDocument=d.generation?.document || (d.projectId ? {projectId:d.projectId,revision:d.revision}:currentDocument);
     if(currentGeneration)currentGeneration.document=currentDocument;
     if(d.generation){currentGeneration=d.generation;$("output").value=d.output;}
+    editorial?.markSaved();
     reviewLabel();say("新しい版をクラウドに保存しました。AI APIは利用していません。");
     await refreshCloud();
   }catch(e){say(e.message);}finally{setBusy(false);reviewLabel();}
 };
 function openVersion(d){
+  try{editorial?.assertCanReplace();}catch(e){say(e.message);return;}
   navigate(d.department || "content");
-  $("topic").value=d.topic;
+  for(const key of ["topic","audience","notes","format"])if(typeof d[key]==="string")$(key).value=d[key];
   if(d.format)$("format").value=d.format;
   for(const key of ["topic","format","audience","notes"])
     if(typeof d.generation?.project?.brief?.[key]==="string")$(key).value=d.generation.project.brief[key];
-  setOutput(d.output,d.department,d.approved===true,d.generation,d.evidence,{projectId:d.projectId,revision:d.revision});
+  setOutput(d.output,d.department,d.approved===true,d.generation,d.evidence,{projectId:d.projectId,revision:d.revision},d.workflow||null,true);
   say("保存した版を開きました。過去の版は最新版を上書きできません。");
 }
 $("revision-refresh").onclick=async()=>{
@@ -692,6 +718,7 @@ async function refreshCloud() {
       open.textContent = "開く";
       open.disabled = !job.output;
       open.onclick = () => {
+        try{editorial?.assertCanReplace();}catch(e){say(e.message);return;}
         const dept = String(job.job_type).replace("_draft", "");
         navigate(dept in departments ? dept : "content");
         $("topic").value = job.topic;
@@ -992,4 +1019,18 @@ research = initResearch({
   write,
   read,
   persistBrief: () => write(keys.brief, brief()),
+});
+
+editorial=initEditorial({
+ request,say,setBusy,getBusy:()=>busy,
+ getDraft:()=>({projectId:currentDocument.projectId,expectedRevision:currentDocument.revision,...brief(),text:$("output").value,evidence:currentEvidence,generation:currentGeneration}),
+ applyDraft:d=>{
+  navigate("content");
+  for(const id of ["topic","audience","notes","format"])if(typeof d[id]==="string")$(id).value=d[id];
+  setOutput(d.output,"content",false,{...d.generation,document:{projectId:d.projectId,revision:d.revision}},d.evidence,{projectId:d.projectId,revision:d.revision},d.workflow,true);
+ },
+ selectChapter:title=>{selectedEditorialSection=title;$("content-section").value=title;$("content-generation-mode").value="chapter";},
+ researchSnapshot:()=>research.snapshot(),
+ adoptEvidence:evidence=>{currentEvidence=evidence;approved=false;refreshPaid();reviewLabel();},
+ cloneDraft:()=>{currentDocument={projectId:crypto.randomUUID(),revision:0};localRevision=0;approved=false;currentWorkflow=null;if(currentGeneration?.project)currentGeneration.project.id=currentDocument.projectId;reviewLabel();},
 });

@@ -50,3 +50,8 @@ CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTE
 案件ID・原稿の版履歴、保存競合の拒否、共通AIタイムアウトと中断記録、USD月額予算の事前予約を追加。全形式のAIを使わないクラウド保存に対応。
 **PreviewでAIを使う前に `AI_MONTHLY_BUDGET_USD` と `AI_PRICING_JSON` の設定が必要。未設定では課金呼び出しを停止する。** 請求実額の自動取得ではない。
 旧データの扱い・料金設定・照合・検証範囲は [STABILITY.md](docs/STABILITY.md) を参照。
+
+## note記事の制作フロー
+
+資料・企画・構成・本文を案件として保存・再開し、章の不足一覧から補完できます。保存原稿からの長文章再開、版ごとの人間の全文確認、確認済みMarkdown出力、制作・確認待ち一覧を追加。自動公開・販売は行いません。
+手順・互換性・検証範囲は [EDITORIAL_WORKFLOW.md](docs/EDITORIAL_WORKFLOW.md) を参照。

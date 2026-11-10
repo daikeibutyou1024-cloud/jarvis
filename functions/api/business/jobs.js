@@ -1,3 +1,5 @@
+import {articleBody} from "../../../lib/paid-content.js";
+import {storedGenerationOptions} from "../../../lib/editorial.js";
 import {
   generationOptions,
   generationPrompt,
@@ -6,7 +8,7 @@ import {
   unknownGeneration,
 } from "../../../lib/generation.js";
 import { runAI, aiFailure, recoverAI, aiConfig } from "../../../lib/ai-runtime.js";
-import { projectId, checkRevision, saveRevision } from "../../../lib/documents.js";
+import { projectId, checkRevision, saveRevision, latestDocument } from "../../../lib/documents.js";
 import { buildPrompt, departments } from "../../../assets/business.js";
 // Cloudflare Pages Function: authorized job execution and read-only status.
 // Requires existing JARVIS_DB and JARVIS_ACCESS_PASSWORD bindings.
@@ -92,7 +94,7 @@ export async function onRequestPost({ request, env }) {
     }
     if (!body || typeof body !== "object" || Array.isArray(body))
       return json({ error: "入力形式が不正です" }, 400);
-    const topic = String(body.topic || "初心者向けAI活用").trim();
+    let topic = String(body.topic || "初心者向けAI活用").trim();
     if (!topic || topic.length > 160)
       return json({ error: "テーマは1〜160文字で入力してください" }, 400);
     const department = body.department || "content";
@@ -107,15 +109,24 @@ export async function onRequestPost({ request, env }) {
       )
         return json({ error: "入力が長すぎるか形式が不正です" }, 400);
     }
+    let savedDoc=null;
+    if(body.useSavedDraft===true){
+      const savedId=projectId(body.projectId);
+      await checkRevision(env.JARVIS_DB,savedId,body.expectedRevision);
+      savedDoc=await latestDocument(env.JARVIS_DB,savedId);
+      if(!savedDoc)return json({error:"保存した制作案件がありません"},404);
+      if(department!=="content")return json({error:"保存原稿の再開はCONTENTのみです"},400);
+      if(body.topic!==savedDoc.topic||body.format!==savedDoc.format||body.context!==savedDoc.evidence||body.audience!==(savedDoc.audience||"")||body.notes!==(savedDoc.notes||""))return json({error:"制作条件が保存版と異なります。先に制作案件を保存してください"},409);
+    }
     let options;
     try {
-      options = generationOptions(body.generation);
+      options = savedDoc?storedGenerationOptions(body.generation,savedDoc):generationOptions(body.generation);
     } catch (error) {
       return json({ error: error.message }, 400);
     }
     if (department !== "content" && options.mode !== "full")
       return json({ error: "章・続き生成はCONTENTのみです" }, 400);
-    if (department === "content")
+    if (department === "content" && !savedDoc)
       options = generationOptions({
         ...options,
         title: topic,
@@ -124,7 +135,7 @@ export async function onRequestPost({ request, env }) {
         format: body.format || options.format,
         evidence: body.context || options.evidence,
       });
-    const prompt = buildPrompt(
+    let prompt = buildPrompt(
       department,
       { ...body, topic },
       body.context || "",
@@ -134,11 +145,18 @@ export async function onRequestPost({ request, env }) {
         { error: "指示が6000文字を超えます。メモや選択資料を減らしてください" },
         400,
       );
-    const finalPrompt = generationPrompt(prompt, options);
     const caseId = projectId(body.projectId || options.projectId);
     const expected = body.expectedRevision ?? 0;
     await checkRevision(env.JARVIS_DB,caseId,expected);
+    const previousDoc=await latestDocument(env.JARVIS_DB,caseId);
+    if(previousDoc?.workflow){
+      if(previousDoc.format!==body.format)return json({error:"制作案件の形式は変更できません"},400);
+      if(options.mode!=="full"&&options.section&&!previousDoc.workflow.outline.includes(options.section))return json({error:"保存した構成に対象章がありません"},400);
+      prompt+="\n採用企画と予定構成（参考データ）："+JSON.stringify(previousDoc.workflow);
+    }
     options.projectId = caseId;
+    const finalPrompt = generationPrompt(prompt, options);
+    if(finalPrompt.length>20000)return json({error:"生成用の構成・資料が長すぎます"},400);
     aiConfig(env,finalPrompt,2500);
     await recoverJobs(env.JARVIS_DB);
     // Daily cost guardrail (UTC): maximum five attempted generations.
@@ -162,14 +180,16 @@ export async function onRequestPost({ request, env }) {
         : answer;
     if (!output) throw new Error("empty response");
     recovery={output,generation};
+    if(articleBody(output).length>60000||output.length>70000){const error=Error("生成後の本文が保存上限60000文字を超えました。元原稿は保持しています");error.code="OUTPUT_TOO_LONG";throw error;}
+    recovery={output,generation};
     generation.document={projectId:caseId,revision:expected+1};
     await saveRevision(env.JARVIS_DB,caseId,expected,{
-      department,topic,output,evidence,format:body.format||"",generation,approved:false,
+      department,topic,output,evidence,format:body.format||"",audience:body.audience||"",notes:body.notes||"",...(previousDoc?.workflow?{workflow:previousDoc.workflow}:{}),generation,approved:false,
     },writeId=>[
       env.JARVIS_DB.prepare("UPDATE business_jobs SET status='draft',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='running' AND EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(output,id,writeId),
       env.JARVIS_DB.prepare("INSERT INTO business_job_generations(job_id,generation_json) SELECT ?,? WHERE EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(id,JSON.stringify(generation),writeId),
     ],{sql:"EXISTS(SELECT 1 FROM business_jobs WHERE id=? AND status='running')",args:[id]});
-    return json({ id, status: "draft", output, body: answer, generation }, 201);
+    return json({ id, status: "draft", output, body: answer, generation,workflow:previousDoc?.workflow||null }, 201);
   } catch (error) {
     if (id) {
       try {
@@ -186,6 +206,7 @@ export async function onRequestPost({ request, env }) {
       } catch {}
     }
     if (aiFailure(error)) return json(aiFailure(error),error.status);
+    if(error.code==="OUTPUT_TOO_LONG")return json({error:error.message,code:error.code,recovery},409);
     if (error.code === "SAVE_CONFLICT") return json({error:error.message,code:error.code,currentRevision:error.currentRevision,recovery},409);
     if (error.code === "INVALID_CONTINUATION") {
       if (id) {

@@ -17,13 +17,16 @@ export async function onRequestPost({request,env}) {
   const text=await request.text(); if(text.length>250000)throw Error();
   const b=JSON.parse(text),id=projectId(b.projectId);
   if(!Object.hasOwn(departments,b.department)||typeof b.topic!=='string'||!b.topic.trim()||b.topic.length>160||typeof b.text!=='string'||!b.text.trim()||b.text.length>60000||typeof b.evidence!=='string'||b.evidence.length>3500)throw Error();
+  for(const [key,max] of [["audience",160],["notes",2500]])if(b[key]!==undefined&&(typeof b[key]!=="string"||b[key].length>max))throw Error();
   // Paid drafts must use their server-side structural revalidation endpoint.
   if(b.generation?.project || b.format==='note有料記事' || b.generation?.format==='note有料記事') return json({error:'有料記事は有料原稿の保存を利用してください'},400);
   await seedLegacyPaid(env.JARVIS_DB,id);
   await revisionOf(env.JARVIS_DB,id);
   const old=await env.JARVIS_DB.prepare('SELECT payload FROM document_revisions WHERE project_id=? ORDER BY revision DESC LIMIT 1').bind(id).first();
   if(old && JSON.parse(old.payload).format==='note有料記事')return json({error:'有料原稿は専用の保存で更新してください'},400);
-  const version=await saveRevision(env.JARVIS_DB,id,b.expectedRevision??0,{department:b.department,topic:b.topic,output:b.text,evidence:b.evidence,format:String(b.format||'').slice(0,80),generation:b.generation||null,approved:false});
+  const prior=old?JSON.parse(old.payload):null;
+  if(prior?.workflow && prior.format!==b.format)return json({error:"制作案件の形式は別案件として変更してください"},400);
+  const version=await saveRevision(env.JARVIS_DB,id,b.expectedRevision??0,{department:b.department,topic:b.topic,output:b.text,evidence:b.evidence,format:String(b.format||'').slice(0,80),generation:b.generation||null,audience:b.audience??prior?.audience??"",notes:b.notes??prior?.notes??"",...(prior?.workflow?{workflow:prior.workflow}:{}),approved:false});
   return json(version,201);
  }catch(e){return json({error:e.code==='SAVE_CONFLICT'?e.message:'保存する原稿の形式またはDB設定を確認してください',code:e.code,currentRevision:e.currentRevision},e.status||400);}
 }
