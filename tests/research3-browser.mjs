@@ -27,7 +27,8 @@ try {
     id: "rss1",
     title: "AI公式記事",
     text: "配信要約",
-    sourceUrl: "https://www.digital.go.jp/news/test",
+    sourceUrl:
+      "https://www.digital.go.jp/policies/genai/aff58345-cef0-433c-8b33-88217fe0b423",
     fetchedAt: "2026-11-10T01:00:00Z",
     recordedAt: "2026-11-10T01:00:00Z",
     kind: "fact",
@@ -118,6 +119,18 @@ try {
       .querySelector(".research-record summary")
       .textContent.includes("本文取得済み"),
   );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "利用者確認済み（解除）", exact: true })
+      .count(),
+    0,
+  );
+  assert.equal(
+    await page
+      .getByRole("button", { name: "内容・出典を確認済みにする", exact: true })
+      .count(),
+    1,
+  );
   await page.locator(".research-record summary").click();
   assert.match(
     await page.locator(".research-record").innerText(),
@@ -155,7 +168,10 @@ try {
   );
   assert.match(prompt, /AI選定テンプレート/);
   assert.match(prompt, /本文取得日時：2026-11-10T02:00:00Z/);
-  assert.match(prompt, /https:\/\/www.digital.go.jp\/news\/test/);
+  assert.match(
+    prompt,
+    /https:\/\/www.digital.go.jp\/policies\/genai\/aff58345-cef0-433c-8b33-88217fe0b423/,
+  );
   assert.match(prompt, /利用者確認日時/);
   assert.match(prompt, /note有料記事/);
   await page.reload();

@@ -6,7 +6,7 @@ RESEARCH 2.0のRSS収集、手入力・JSON/CSV、既存5部門と保存機能�
 
 ## 本文取得と制限
 - RESEARCHの公式RSS資料で「許可ページの本文を取得」。公開ページだけを対象とする。
-- 接続先は `www.digital.go.jp/news/...` と `www.caa.go.jp/notice/entry/...` のHTTPSのみ。
+- 接続先は `www.digital.go.jp/news/...`・`www.digital.go.jp/policies/...` と `www.caa.go.jp/notice/entry/...` のHTTPSのみ。
 - さらにD1にある期限内の公式RSS取得結果に完全一致するURLが必要。任意URLを指定しても取得しない。
 - IPアドレス、類似ドメイン、ユーザー情報、追加ポート、クエリ、フラグメント、URLエンコード、バックスラッシュ、対象外パスやファイル形式を拒否。
 - 同じ公式ホストのrobots.txtを先に取得し、専用User-Agent/ワイルドカードの最長一致ルールを確認。404は規則なし、失敗・拒否・非対応応答なら本文を取得しない。
@@ -47,3 +47,5 @@ RESEARCH 2.0のRSS収集、手入力・JSON/CSV、既存5部門と保存機能�
 Previewデプロイ成功と、外部本文取得成功・企画の収益性は区別する。
 
 今回の確認結果: 単体テスト36件、既存5部門/RESEARCH 2.0/RESEARCH 3.0のブラウザ操作（390/768/1440px）、Cloudflare Functionsビルドが成功。HTMLパーサーの同梱元パッケージをnpm auditで確認し既知脆弱性0件。
+
+本文対象の修正: デジタル庁RSSに掲載された/policies/の記事も許可する。ホストごとにパスを検証し、消費者庁の/policies/は許可しない。URL拒否・RSS未掲載・robots拒否・通信失敗などの理由を表示。本文取得結果は未検証のままで、取得成功・再取得成功・失敗時とも利用者確認を自動付与しない。

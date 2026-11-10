@@ -19,10 +19,19 @@ export async function onRequestGet({ request, env }) {
   const params = new URL(request.url).searchParams;
   let u;
   try {
-    if ([...params.keys()].some((k) => k !== "url")) throw Error();
+    if (
+      [...params.keys()].some((k) => k !== "url") ||
+      params.getAll("url").length !== 1
+    )
+      return missing("本文URLはurlパラメーター1個で指定してください", 400);
     u = articleURL(params.get("url"));
-  } catch {
-    return missing("本文は許可された公式RSS掲載ページのみ取得できます", 400);
+  } catch (error) {
+    return missing(
+      error.message?.startsWith("本文URL：")
+        ? error.message
+        : "本文URLの形式を確認してください",
+      400,
+    );
   }
   const source = u.hostname === "www.digital.go.jp" ? "digital" : "caa",
     db = env.JARVIS_DB;
@@ -37,7 +46,7 @@ export async function onRequestGet({ request, env }) {
       !feed.items?.some((r) => r.sourceUrl === u.href)
     )
       return missing(
-        "取得済みの最新RSSに掲載されたページを選んでください",
+        "取得済みの最新RSSにこのURLが見つかりません。RSSを再取得して掲載されたページを選んでください",
         400,
       );
     if (await cacheRead(db, "page-pause:" + source))

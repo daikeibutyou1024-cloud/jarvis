@@ -416,3 +416,153 @@ test("paid-note and affiliate drafts request appropriate structure without inven
     /Amazon等の最新価格.*未取得/,
   );
 });
+
+const policyURL =
+  "https://www.digital.go.jp/policies/genai/aff58345-cef0-433c-8b33-88217fe0b423";
+test("Digital Agency policies URLs are allowed without allowing other hosts or path tricks", () => {
+  assert.equal(articleURL(policyURL).href, policyURL);
+  assert.equal(
+    articleURL("https://www.caa.go.jp/notice/entry/test.html").hostname,
+    "www.caa.go.jp",
+  );
+  for (const raw of [
+    policyURL.replace("www.digital.go.jp", "www.caa.go.jp"),
+    policyURL.replace("www.digital.go.jp", "www.digital.go.jp.evil.example"),
+    policyURL + "?redirect=http://127.0.0.1",
+    policyURL + "#fragment",
+    policyURL.replace("/genai/", "/%2e%2e/"),
+    policyURL.replace("/genai/", "/../policies/genai/"),
+    policyURL.replace("/genai/", "//genai/"),
+    policyURL + ".pdf",
+    "https://www.digital.go.jp/policies-other/test",
+    "https://www.digital.go.jp/notice/entry/test",
+  ])
+    assert.throws(() => articleURL(raw), raw);
+});
+test("listed policies article passes RSS and robots gates, preserves timestamps and stays unreviewed", async () => {
+  const db = await seeded(),
+    original = fetch;
+  let calls = 0;
+  db.db
+    .prepare("UPDATE research_cache SET payload=? WHERE key=?")
+    .run(
+      JSON.stringify({
+        status: "acquired",
+        items: [{ ...record, sourceUrl: policyURL }],
+      }),
+      "digital",
+    );
+  globalThis.fetch = async (url) => {
+    calls++;
+    assert.ok(
+      [policyURL, "https://www.digital.go.jp/robots.txt"].includes(url),
+    );
+    return new Response(
+      url.endsWith("/robots.txt") ? "User-agent: *\nAllow: /policies/" : html,
+      {
+        headers: {
+          "Content-Type": url.endsWith("/robots.txt")
+            ? "text/plain"
+            : "text/html; charset=utf-8",
+        },
+      },
+    );
+  };
+  try {
+    const unlisted = await article({
+      request: pageReq(policyURL + "-not-listed"),
+      env: env(db),
+    });
+    assert.equal(unlisted.status, 400);
+    assert.match(
+      (await unlisted.json()).error,
+      /最新RSSにこのURLが見つかりません/,
+    );
+    assert.equal(calls, 0);
+    const data = await (
+      await article({ request: pageReq(policyURL), env: env(db) })
+    ).json();
+    assert.equal(data.status, "acquired");
+    assert.equal(data.sourceUrl, policyURL);
+    assert.equal(data.rssFetchedAt, record.fetchedAt);
+    assert.ok(data.fetchedAt);
+    assert.match(data.label, /未検証/);
+    assert.equal(data.reviewedAt, undefined);
+    assert.doesNotMatch(data.text, /BAD_/);
+    const cache = await (
+      await article({ request: pageReq(policyURL), env: env(db) })
+    ).json();
+    assert.equal(cache.cached, true);
+    assert.equal(cache.fetchedAt, data.fetchedAt);
+    assert.equal(cache.reviewedAt, undefined);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = original;
+    db.db.close();
+  }
+});
+test("policies article failures disclose robots or redirect reasons and never mark acquisition", async () => {
+  const original = fetch;
+  try {
+    for (const reason of ["robots", "redirect"]) {
+      const db = await seeded();
+      db.db
+        .prepare("UPDATE research_cache SET payload=? WHERE key=?")
+        .run(
+          JSON.stringify({
+            status: "acquired",
+            items: [{ ...record, sourceUrl: policyURL }],
+          }),
+          "digital",
+        );
+      let pageCalls = 0;
+      globalThis.fetch = async (url) => {
+        if (url.endsWith("/robots.txt"))
+          return new Response(
+            reason === "robots"
+              ? "User-agent: *\nDisallow: /policies/"
+              : "User-agent: *\nAllow: /",
+            { headers: { "Content-Type": "text/plain" } },
+          );
+        pageCalls++;
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "http://127.0.0.1/private" },
+        });
+      };
+      try {
+        const data = await (
+          await article({ request: pageReq(policyURL), env: env(db) })
+        ).json();
+        assert.equal(data.status, "unavailable");
+        assert.equal(data.fetchedAt, null);
+        assert.equal(data.reviewedAt, undefined);
+        assert.match(
+          data.error,
+          reason === "robots" ? /robots.txt/ : /リダイレクト/,
+        );
+        assert.equal(pageCalls, reason === "robots" ? 0 : 1);
+      } finally {
+        db.db.close();
+      }
+    }
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+test("public policies page timeout still aborts the connection", async () => {
+  let aborted = false;
+  await assert.rejects(
+    fetchPublic(policyURL, {
+      fetcher: async (_url, { signal }) =>
+        new Promise((_, reject) =>
+          signal.addEventListener("abort", () => {
+            aborted = true;
+            reject(Error("aborted"));
+          }),
+        ),
+    }),
+    /8秒.*タイムアウト/,
+  );
+  assert.equal(aborted, true);
+});
