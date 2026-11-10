@@ -1,3 +1,4 @@
+import {initPreflight} from "./preflight.js";
 import {initBusinessStore} from "./business-store.js";
 import {initOperations} from "./operations.js";
 import {initEditorial} from "./editorial.js";
@@ -1046,3 +1047,5 @@ businessStore=initBusinessStore({
  requireSavedDraft:()=>editorial.requireSaved(),
  readLegacy:()=>({ledger:JSON.parse(localStorage.getItem(keys.ledger)||"[]"),metrics:JSON.parse(localStorage.getItem(keys.metrics)||"{}")}),
 });
+
+initPreflight({request,say,getBusy:()=>busy});
