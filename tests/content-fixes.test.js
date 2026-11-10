@@ -245,7 +245,7 @@ test("explicit continuation preserves earlier text and consumes one of the same 
     });
     const data = await r.json();
     assert.equal(data.answer, "STEP 4の途中。そして結論です。");
-    assert.equal(data.generation.articleStatus, "complete");
+    assert.equal(data.generation.articleStatus, "needs_review");
     assert.equal(
       db.db.prepare("SELECT COUNT(*) AS n FROM ai_usage").get().n,
       1,

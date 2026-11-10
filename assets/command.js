@@ -277,11 +277,18 @@ async function generate(cloud, continuation = false) {
       return say("続きの対象となる原稿がありません");
     if (mode !== "full" && previous.length > 30000)
       return say("章・続き生成の既存原稿は30000文字以内です");
-    options = { mode, section, previous: mode === "full" ? "" : previous };
+    options = {
+      mode,
+      section,
+      previous: mode === "full" ? "" : previous,
+      title: b.topic,
+      format: b.format,
+    };
   }
   let evidence, prompt;
   try {
     evidence = context();
+    if (options?.mode === "continue") options.evidence = evidence;
     prompt = buildPrompt(department, b, evidence);
     if (prompt.length > 6000)
       throw Error("指示が6000文字を超えます。メモや選択資料を減らしてください");
@@ -335,12 +342,14 @@ async function generate(cloud, continuation = false) {
       await refreshCloud();
     }
     say(
-      incomplete
-        ? generationLabel(currentGeneration) +
+      currentGeneration?.articleStatus === "needs_review"
+        ? "続きの重複検査を通過して追加しました。全文の補完完了を確認し、出典と内容を確認してください。"
+        : incomplete
+          ? generationLabel(currentGeneration) +
             "。続きを作成するか手動で補完してください。"
-        : dept === "content"
-          ? "生成が終了しました。記事の構成・出典・内容を確認してください。"
-          : "下書きを作成しました。出典・内容を確認してください。",
+          : dept === "content"
+            ? "生成が終了しました。記事の構成・出典・内容を確認してください。"
+            : "下書きを作成しました。出典・内容を確認してください。",
     );
   } catch (e) {
     say(e.message);

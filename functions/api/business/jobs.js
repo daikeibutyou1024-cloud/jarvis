@@ -207,9 +207,33 @@ export async function onRequestPost({ request, env }) {
         await env.JARVIS_DB.prepare(
           "UPDATE business_jobs SET status='failed',error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
         )
-          .bind("生成に失敗しました。API設定や残高を確認してください。", id)
+          .bind(
+            error.code === "INVALID_CONTINUATION"
+              ? error.message
+              : "生成に失敗しました。API設定や残高を確認してください。",
+            id,
+          )
           .run();
       } catch {}
+    }
+    if (error.code === "INVALID_CONTINUATION") {
+      if (id) {
+        try {
+          await env.JARVIS_DB.prepare(
+            "INSERT OR REPLACE INTO business_job_generations(job_id,generation_json) VALUES(?,?)",
+          )
+            .bind(id, JSON.stringify(error.generation))
+            .run();
+        } catch {}
+      }
+      return json(
+        {
+          error: error.message,
+          code: error.code,
+          generation: error.generation,
+        },
+        409,
+      );
     }
     return json(
       {

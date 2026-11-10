@@ -40,3 +40,5 @@ RESEARCH 2.0の利用手順・取り込み仕様・制限・検証範囲は [doc
 RESEARCH 3.0の本文取得・企画評価・利用回数制限は [docs/RESEARCH_3.md](docs/RESEARCH_3.md) を参照。
 
 CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTENT_COMPLETION_FIX.md](docs/CONTENT_COMPLETION_FIX.md) を参照。
+
+続き生成専用の指示・重複検査・原稿保護は [docs/CONTENT_CONTINUATION_FIX.md](docs/CONTENT_CONTINUATION_FIX.md) を参照。

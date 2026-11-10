@@ -147,7 +147,13 @@ try {
     await page.locator("#output").inputValue(),
     "STEP 4：手順の途続きの説明と結論。",
   );
-  assert.match(await page.locator("#review-state").innerText(), /生成終了/);
+  assert.match(
+    await page.locator("#review-state").innerText(),
+    /全体の完成確認/,
+  );
+  await page
+    .getByRole("button", { name: "全文の補完完了を確認", exact: true })
+    .click();
   await page.locator("#approve").click();
   assert.match(await page.locator("#review-state").innerText(), /確認済み/);
   await page.locator("#cloud-generate").click();

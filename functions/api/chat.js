@@ -100,6 +100,15 @@ export async function onRequestPost({ request, env }) {
       const { body: article, generation } = composeResult(answer, options);
       return json({ answer: article, generation });
     } catch (error) {
+      if (error.code === "INVALID_CONTINUATION")
+        return json(
+          {
+            error: error.message,
+            code: error.code,
+            generation: error.generation,
+          },
+          409,
+        );
       // Do not return raw provider errors: they can contain sensitive request details.
       console.error(
         "AI provider request failed",
