@@ -7,8 +7,8 @@
 - RESEARCH 3.0: 官公庁RSS・GitHub、許可された公式記事本文、比較資料、AI仮説の企画評価、確認済み資料とCONTENT引き継ぎ。任意URL巡回なし。
 - CONTENT: note・アフィリエイト記事・X・Instagram・TikTokの下書き。
 - MARKETING: 集客・CTA・広告導線の設計。投稿・提携登録なし。
-- ANALYTICS: 月次アクセス・クリック・成果を手入力、CTR・成果率を集計。端末保存。
-- FINANCE: 円建ての売上・経費・API費用を手入力、累計利益を集計。API費用自動取得なし。端末保存。
+- ANALYTICS: 月次アクセス・クリック・成果を手入力、CTR・成果率を集計。旧端末保存と認証付きD1共有記録に対応。
+- FINANCE: 円建ての売上・経費・API費用を手入力し、入力差額を集計。旧端末保存と認証付きD1共有記録に対応。実利益・API請求の自動取得なし。
 - `functions/api/chat.js`: 既存認証・Claude既定・OpenAI切替を維持。
 - `functions/api/research/collect.js`: 固定接続先の無料取得・D1共有制限・キャッシュ（詳細はdocs/RESEARCH_2.md）。
 - `functions/api/business/jobs.js`: 全部門のAI下書きを既存D1のbusiness_jobsへ保存・最新20件取得。
@@ -60,3 +60,9 @@ CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTE
 
 収集設定・重複防止と中断管理・未確認資料の受信箱・日本時間の日次運用レポートを追加。AIの定期生成や外部投稿は行わず、全体停止が既定。起動元のひな型は未配備・未有効化です。
 [COLLECTION_AUTOMATION.md](docs/COLLECTION_AUTOMATION.md) と [本番反映の判断](docs/RELEASE_READINESS.md) を参照。
+
+## 公開準備・共有収支と成果
+
+全文確認済みの保存版から公開用本文と未確認の告知案を取り出し、利用者が手動公開したURLを申告として記録できます。外部への投稿・販売・実績照合は行いません。
+認証付きの収支・成果記録には版履歴、競合拒否、取消・復元を用意。旧端末データは明示操作でコピーし、元データを保持します。CSV取り込みと現行値のJSONコピーに対応します。
+手順・形式・移行の限界は [SHARED_BUSINESS_RECORDS.md](docs/SHARED_BUSINESS_RECORDS.md) を参照。

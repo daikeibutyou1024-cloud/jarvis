@@ -4,12 +4,12 @@
 
 | 判断項目 | 現状 | 次に必要な作業 |
 |---|---|---|
-| 主要機能の完成 | 未完了 | 定期起動の配備・稼働確認、必要な外部公開連携、成果・収支の集約を完了する |
-| 自動テスト | ローカルの模擬・回帰テスト成功。GitHubの結果は対象コミットのChecksを参照 | 新しい変更やPreviewの問題があれば修正し再検証する |
+| 主要機能の完成 | 未完了 | 定期起動の配備・稼働確認、必要な外部公開連携、手入力集約から実績連携への接続を検証する |
+| 自動テスト | ローカルの模擬・回帰テスト159件成功（うち今回22件追加）。GitHubの結果は対象コミットのChecksを参照 | 新しい変更やPreviewの問題があれば修正し再検証する |
 | Preview実動作 | 表示・部門切替は確認可能。認証後の保存・取得・定期実行は未完了 | 認証付きの主要フローと異常系を、追加課金を発生させずに確認する |
 | 既存データ・設定の移行 | 追加テーブルのみで既存スキーマは維持。実DBは未検証 | PreviewとProductionのD1分離、バックアップ・復元、実データ互換性を確認する |
 | API費用・セキュリティ | 回数・予算停止、専用認証、既定停止、重複防止を実装・模擬検証。実設定は未確認 | 料金設定・利用枠・秘密の管理・実認証と停止動作を確認する |
 
 結論: **本番反映の準備はまだ整っていない。** 準備が整った場合にも、利用者の明確な承認を得るまでmain・Productionへ反映しない。
 
-今回の実装・制限: [COLLECTION_AUTOMATION.md](COLLECTION_AUTOMATION.md)。記事制作: [EDITORIAL_WORKFLOW.md](EDITORIAL_WORKFLOW.md)。保存と費用: [STABILITY.md](STABILITY.md)。
+今回の公開準備・収支・成果共有: [SHARED_BUSINESS_RECORDS.md](SHARED_BUSINESS_RECORDS.md)。収集の実装・制限: [COLLECTION_AUTOMATION.md](COLLECTION_AUTOMATION.md)。記事制作: [EDITORIAL_WORKFLOW.md](EDITORIAL_WORKFLOW.md)。保存と費用: [STABILITY.md](STABILITY.md)。

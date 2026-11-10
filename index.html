@@ -506,6 +506,38 @@
         <ul id="cloud-jobs" class="draft-list"></ul>
       </section>
       <section class="panel">
+        <h2>公開準備・手動公開の記録</h2>
+        <p class="hint">開いている制作案件の確認済み版を使います。集客案は未確認の下書きです。実際の投稿・販売・外部アカウント操作は行いません。</p>
+        <button id="publication-package">確認済み記事と集客案を準備（AI利用なし）</button><p id="publication-state" role="status">未準備・外部未接続</p>
+        <label for="publication-output">準備した原稿と集客案（確認してコピー）</label><textarea id="publication-output" readonly rows="8"></textarea>
+        <details><summary>自分で公開した内容を記録</summary>
+          <label for="publication-channel">公開先</label><select id="publication-channel"><option value="note">note</option><option value="x">X</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="other">その他</option></select>
+          <label for="publication-url">公開URL（HTTPS）</label><input id="publication-url" type="url" maxlength="400"><label for="publication-date">公開日（日本時間）</label><input id="publication-date" type="date">
+          <label class="check"><input id="publication-done" type="checkbox">自分で外部サービスに公開した</label><label class="check"><input id="publication-account" type="checkbox">公開したアカウント・公開先を確認した</label><label class="check"><input id="publication-terms" type="checkbox">公開先の利用条件を確認した</label><label class="check"><input id="publication-content" type="checkbox">準備した版と公開本文・集客案・URLを照合した</label>
+          <button id="publication-record">手動公開を申告として記録（投稿はしません）</button>
+        </details>
+      </section>
+      <section class="panel">
+        <h2>共有の成果・収支記録</h2>
+        <p class="hint">円の手入力台帳と、案件・月・計測元ごとの成果です。外部の売上や請求を自動取得しません。既存の端末記録とは別に集計します。</p>
+        <label for="shared-filter-project">一覧・集計の案件ID（空欄は全体）</label><input id="shared-filter-project" maxlength="80"><label for="shared-filter-month">一覧・集計の月（空欄は全期間）</label><input id="shared-filter-month" type="month"><button id="shared-refresh">共有記録を取得・集計（AI利用なし）</button><p id="shared-summary" role="status">未取得</p><ul id="shared-metrics"></ul>
+        <details><summary>収支・成果を登録／編集</summary>
+          <p id="shared-editing"></p><label for="shared-kind">記録の種類</label><select id="shared-kind"><option value="finance">収支（円）</option><option value="metrics">成果の計測</option></select>
+          <label for="shared-project">関連する案件ID（任意）</label><input id="shared-project" maxlength="80"><button id="shared-link-current">開いている制作案件を関連付ける</button>
+          <fieldset><legend>収支を選択した場合</legend><label for="shared-date">日付</label><input id="shared-date" type="date"><label for="shared-type">区分</label><select id="shared-type"><option value="revenue">売上</option><option value="expense">経費（API以外）</option><option value="api">API費用</option></select><label for="shared-amount">金額（円）</label><input id="shared-amount" type="number" min="0.01" max="999999999" step="0.01"><label for="shared-memo">摘要</label><input id="shared-memo" maxlength="500"></fieldset>
+          <fieldset><legend>成果の計測を選択した場合</legend><label for="shared-month">対象月</label><input id="shared-month" type="month"><label for="shared-channel">計測元</label><select id="shared-channel"><option value="unspecified">未分類</option><option value="all">全体の計測</option><option value="note">note</option><option value="x">X</option><option value="instagram">Instagram</option><option value="tiktok">TikTok</option><option value="affiliate">アフィリエイト</option><option value="other">その他</option></select><label for="shared-visits">アクセス数（未取得は空欄）</label><input id="shared-visits" type="number" min="0" step="1"><label for="shared-clicks">クリック数（同じ計測範囲）</label><input id="shared-clicks" type="number" min="0" step="1"><label for="shared-conversions">成果件数</label><input id="shared-conversions" type="number" min="0" step="1"></fieldset>
+          <button id="shared-save">共有記録を保存</button><button id="shared-new">新しい記録を入力</button>
+        </details>
+        <ul id="shared-records"></ul><button id="shared-next" hidden>次の50件</button>
+        <details><summary>端末データ・CSV・コピー用JSON</summary>
+          <p class="hint">元データは消しません。確認後に10件単位でコピーします。途中で止まった場合も同じIDの重複は防止します。書き出しは収支・計測の現行記録のみで、原稿・全版履歴・秘密設定のバックアップではありません。</p>
+          <button id="shared-legacy">この端末の旧記録をコピー前に確認</button><label for="shared-import-kind">CSVの種類</label><select id="shared-import-kind"><option value="finance">収支</option><option value="metrics">成果計測</option></select>
+          <p class="hint">収支CSV列：id,date,type,amount,memo,projectId ／ 成果CSV列：period,channel,visits,clicks,conversions,projectId。金額は円、日付はYYYY-MM-DD、月はYYYY-MM。未取得の成果を0へ補完しません。</p>
+          <label for="shared-file">CSV・コピー用JSONを読み込む（1MB以下）</label><input id="shared-file" type="file" accept=".csv,.json,text/csv,application/json"><label for="shared-import-text">コピーする内容（確認用）</label><textarea id="shared-import-text" rows="6" maxlength="1000000"></textarea>
+          <button id="shared-preview-csv">CSV内容を確認</button><button id="shared-preview-json">コピー用JSONを確認</button><p id="shared-transfer" role="status">未確認</p><button id="shared-apply">確認した内容をコピー</button><button id="shared-export">収支・計測の現行記録を書き出す</button>
+        </details>
+      </section>
+      <section class="panel">
         <h2>定期収集・運用レポート</h2>
         <p class="hint">AIを使わず、許可済みRSS・GitHub公開情報を収集するための管理画面です。初期状態では全体停止。サーバー側の設定と起動元を有効にするまで自動では動きません。</p>
         <button id="ops-refresh">収集設定・履歴・受信箱を取得</button><p id="ops-state" role="status">未取得・自動実行の状態は未確認</p>

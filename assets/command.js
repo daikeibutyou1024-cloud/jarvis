@@ -1,3 +1,4 @@
+import {initBusinessStore} from "./business-store.js";
 import {initOperations} from "./operations.js";
 import {initEditorial} from "./editorial.js";
 import {compactGeneration} from "../lib/editorial.js";
@@ -72,6 +73,7 @@ let page = "overview",
   authPending = null;
 let currentDocument = {projectId:crypto.randomUUID(),revision:0}, localRevision = 0;
 const history = [];
+let businessStore = null;
 let research = null, editorial = null, currentWorkflow = null, selectedEditorialSection = "";
 let currentGeneration = null,
   currentEvidence = "";
@@ -214,12 +216,12 @@ for (const id of ["topic", "audience", "format", "notes"]) {
   if (typeof saved[id] === "string") $(id).value = saved[id];
   $(id).addEventListener("change", () => write(keys.brief, brief()));
 }
-const context = () =>
+const context = () => businessStore?.contextFor(department) || (
   department === "analytics"
     ? metricsSummary(metrics[$("metrics-form").elements.period.value])
     : department === "finance"
       ? "累計の手入力収支（円）：" + JSON.stringify(financeTotals(ledger))
-      : research?.context(department) || "";
+      : research?.context(department) || "");
 function setOutput(
   text,
   dept = department,
@@ -1037,3 +1039,10 @@ editorial=initEditorial({
 });
 
 initOperations({request,say,getBusy:()=>busy,importInbox:items=>research.importInbox(items)});
+
+businessStore=initBusinessStore({
+ request,say,getBusy:()=>busy,
+ getCurrentDraft:()=>({projectId:currentDocument.projectId,expectedRevision:currentDocument.revision}),
+ requireSavedDraft:()=>editorial.requireSaved(),
+ readLegacy:()=>({ledger:JSON.parse(localStorage.getItem(keys.ledger)||"[]"),metrics:JSON.parse(localStorage.getItem(keys.metrics)||"{}")}),
+});
