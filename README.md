@@ -55,3 +55,8 @@ CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTE
 
 資料・企画・構成・本文を案件として保存・再開し、章の不足一覧から補完できます。保存原稿からの長文章再開、版ごとの人間の全文確認、確認済みMarkdown出力、制作・確認待ち一覧を追加。自動公開・販売は行いません。
 手順・互換性・検証範囲は [EDITORIAL_WORKFLOW.md](docs/EDITORIAL_WORKFLOW.md) を参照。
+
+## 定期収集・運用状況
+
+収集設定・重複防止と中断管理・未確認資料の受信箱・日本時間の日次運用レポートを追加。AIの定期生成や外部投稿は行わず、全体停止が既定。起動元のひな型は未配備・未有効化です。
+[COLLECTION_AUTOMATION.md](docs/COLLECTION_AUTOMATION.md) と [本番反映の判断](docs/RELEASE_READINESS.md) を参照。

@@ -202,3 +202,14 @@ export function researchPacket(records) {
     );
   return text;
 }
+
+// Only the authenticated server inbox uses this contract. File imports still use manualRecord.
+export function receivedRecord(r,existing=[]){
+ if(!r||typeof r.id!=="string"||!/^[-a-zA-Z0-9]{1,80}$/.test(r.id)||typeof r.title!=="string"||!r.title.trim()||r.title.length>160||typeof r.text!=="string"||!r.text.trim()||r.text.length>1000||!Object.hasOwn(sourceCatalog,r.origin)||r.kind!=="fact"||r.verification!=="source_observed"||r.status!=="acquired"||!referenceUrl(r.sourceUrl)||typeof r.fetchedAt!=="string"||!Number.isFinite(Date.parse(r.fetchedAt)))throw Error("収集資料の形式が不正です");
+ const old=existing.find(x=>x.id===r.id);
+ if(old){
+  if(["title","text","sourceUrl","origin","fetchedAt"].some(key=>old[key]!==r[key]))throw Error("同じ資料IDの内容が異なります。既存資料を保護して取り込みを停止しました");
+  return structuredClone(old);
+ }
+ return {id:r.id,title:r.title,text:r.text,sourceUrl:referenceUrl(r.sourceUrl),origin:r.origin,kind:"fact",verification:"source_observed",status:"acquired",fetchedAt:r.fetchedAt,recordedAt:typeof r.recordedAt==="string"?r.recordedAt:r.fetchedAt,publishedAt:typeof r.publishedAt==="string"?r.publishedAt:null,reviewedAt:null,price:"",affiliate:""};
+}

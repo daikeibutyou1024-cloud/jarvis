@@ -706,3 +706,8 @@ summary {
 #content-evidence-list li {
   overflow-wrap: anywhere;
 }
+
+.operations-report {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

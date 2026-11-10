@@ -1,0 +1,5 @@
+-- Additive tables only. Optional manual migration; runtime creates the same isolated tables.
+CREATE TABLE IF NOT EXISTS collection_schedules (id TEXT PRIMARY KEY, name TEXT NOT NULL, source TEXT NOT NULL, query TEXT NOT NULL, interval_minutes INTEGER NOT NULL, enabled INTEGER NOT NULL DEFAULT 0, version INTEGER NOT NULL, next_run_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS collection_runs (id TEXT PRIMARY KEY, schedule_id TEXT NOT NULL, schedule_version INTEGER NOT NULL, due_at INTEGER NOT NULL, state TEXT NOT NULL, started_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, finished_at INTEGER, result_json TEXT, UNIQUE(schedule_id,schedule_version,due_at));
+CREATE INDEX IF NOT EXISTS idx_collection_runs_time ON collection_runs(started_at);
+CREATE TABLE IF NOT EXISTS research_inbox (id TEXT PRIMARY KEY, source TEXT NOT NULL, source_url TEXT NOT NULL, fingerprint TEXT NOT NULL, record_json TEXT NOT NULL, run_id TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'new', created_at INTEGER NOT NULL, UNIQUE(source,source_url,fingerprint));

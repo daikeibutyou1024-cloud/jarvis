@@ -7,6 +7,7 @@ import {
   researchPacket,
   handoffIsStale,
   bodyState,
+  receivedRecord,
 } from "./research-data.js";
 const STORE = "jarvis_research_records_v2",
   HANDOFF = "jarvis_research_handoff_v2";
@@ -499,6 +500,14 @@ export function initResearch({
   renderHandoff();
   renderPlans();
   return {
+    importInbox(items){
+      try{
+        if(!Array.isArray(items)||!items.length||items.length>10)throw Error("収集資料は1〜10件です");
+        const clean=items.map(r=>receivedRecord(r,records));
+        const fresh=clean.filter(r=>!records.some(x=>x.id===r.id));
+        return fresh.length?add(fresh):true;
+      }catch(e){say(e.message);return false;}
+    },
     snapshot(){return {evidence:this.context("content"),idea:selectedPlan?planPacket(selectedPlan):""};},
     context(dept) {
       if (dept === "research")

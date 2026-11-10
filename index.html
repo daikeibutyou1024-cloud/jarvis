@@ -505,6 +505,22 @@
         <p id="cloud-status" role="status">未取得</p>
         <ul id="cloud-jobs" class="draft-list"></ul>
       </section>
+      <section class="panel">
+        <h2>定期収集・運用レポート</h2>
+        <p class="hint">AIを使わず、許可済みRSS・GitHub公開情報を収集するための管理画面です。初期状態では全体停止。サーバー側の設定と起動元を有効にするまで自動では動きません。</p>
+        <button id="ops-refresh">収集設定・履歴・受信箱を取得</button><p id="ops-state" role="status">未取得・自動実行の状態は未確認</p>
+        <details><summary>収集設定を作成・編集</summary>
+          <p id="ops-editing"></p><label for="ops-name">設定名</label><input id="ops-name" maxlength="80">
+          <label for="ops-source">情報源</label><select id="ops-source"><option value="digital">デジタル庁</option><option value="caa">消費者庁</option><option value="github">GitHub公開リポジトリ</option></select>
+          <label for="ops-query">キーワード</label><input id="ops-query" maxlength="80">
+          <label for="ops-interval">収集間隔（分、60〜1440）</label><input id="ops-interval" type="number" min="60" max="1440" value="360">
+          <label class="check"><input id="ops-enabled" type="checkbox">この設定を有効にする（全体停止中は実行されません）</label>
+          <button id="ops-save">収集設定を保存（AI利用なし）</button><button id="ops-new">新しい設定を入力</button>
+        </details>
+        <ul id="ops-schedules"></ul><h3>最近の収集実行</h3><ul id="ops-runs"></ul>
+        <h3>収集資料の受信箱（内容・出典は未確認）</h3><ul id="ops-inbox"></ul><button id="ops-inbox-next" hidden>次の資料を表示</button>
+        <h3>日次の運用状況</h3><label for="report-date">対象日（日本時間）</label><input id="report-date" type="date"><button id="ops-report">運用レポートを作成（AI利用なし）</button><pre id="ops-report-output" class="operations-report" role="status"></pre>
+      </section>
       <footer>
         J.A.R.V.I.S. / AI BUSINESS OPERATIONS
         <span>公開・購入・自動投稿は実行しません</span>

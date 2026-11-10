@@ -1,0 +1,10 @@
+# Optional template only. Do not deploy or activate until costs, Preview bindings and secrets are checked.
+name = "jarvis-collector-preview"
+main = "collector.js"
+compatibility_date = "2026-11-11"
+workers_dev = false
+[vars]
+COLLECTOR_RELAY_ENABLED = "false"
+[triggers]
+crons = []
+# Set JARVIS_SCHEDULER_TOKEN as a secret only after explicit activation review.

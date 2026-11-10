@@ -1,3 +1,4 @@
+import {initOperations} from "./operations.js";
 import {initEditorial} from "./editorial.js";
 import {compactGeneration} from "../lib/editorial.js";
 import { saveLocalDraft } from "../lib/local-drafts.js";
@@ -1034,3 +1035,5 @@ editorial=initEditorial({
  adoptEvidence:evidence=>{currentEvidence=evidence;approved=false;refreshPaid();reviewLabel();},
  cloneDraft:()=>{currentDocument={projectId:crypto.randomUUID(),revision:0};localRevision=0;approved=false;currentWorkflow=null;if(currentGeneration?.project)currentGeneration.project.id=currentDocument.projectId;reviewLabel();},
 });
+
+initOperations({request,say,getBusy:()=>busy,importInbox:items=>research.importInbox(items)});
