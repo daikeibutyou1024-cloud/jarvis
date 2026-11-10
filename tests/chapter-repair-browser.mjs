@@ -1,3 +1,6 @@
+import { budgetEnv,adaptDB } from "./runtime-fixture.js";
+import * as versions from "../functions/api/business/drafts.js";
+import * as usage from "../functions/api/business/usage.js";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { DatabaseSync } from "node:sqlite";
@@ -19,29 +22,8 @@ db.exec(
 );
 const env = {
   JARVIS_ACCESS_PASSWORD: "test",
-  ANTHROPIC_API_KEY: "mock",
-  JARVIS_DB: {
-    prepare(sql) {
-      return {
-        args: [],
-        bind(...args) {
-          this.args = args;
-          return this;
-        },
-        async first() {
-          return db.prepare(sql).get(...this.args) || null;
-        },
-        async all() {
-          return { results: db.prepare(sql).all(...this.args) };
-        },
-        async run() {
-          return {
-            meta: { changes: db.prepare(sql).run(...this.args).changes },
-          };
-        },
-      };
-    },
-  },
+  ...budgetEnv, ANTHROPIC_API_KEY: "mock",
+  JARVIS_DB: adaptDB(db),
 };
 let calls = 0,
   next = "### 実践手順\n逆戻り",
@@ -109,7 +91,7 @@ try {
       headers: r.headers(),
       ...(r.method() === "POST" ? { body: r.postData() } : {}),
     });
-    const api = r.url().includes("paid-drafts")
+    const api = r.url().includes("/business/drafts") ? versions : r.url().includes("/business/usage") ? usage : r.url().includes("paid-drafts")
       ? drafts
       : r.url().includes("business/jobs")
         ? jobs

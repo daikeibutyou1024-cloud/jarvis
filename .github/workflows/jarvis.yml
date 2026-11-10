@@ -1,60 +1,16 @@
-
-name: JARVIS AI
-
+name: JARVIS offline checks
 on:
   workflow_dispatch:
-    inputs:
-      prompt:
-        description: "JARVISへの指示"
-        required: true
-        type: string
-
+  push:
+    branches: [feature/ai-business-rebuild]
 permissions:
   contents: read
-
 jobs:
-  run-jarvis:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Claude APIで回答を生成
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          USER_PROMPT: ${{ inputs.prompt }}
-        run: |
-          python - <<'PY'
-          import os
-          import json
-          import urllib.request
-
-          api_key = os.environ["ANTHROPIC_API_KEY"]
-          prompt = os.environ["USER_PROMPT"]
-
-          payload = {
-              "model": "claude-sonnet-4-6",
-              "max_tokens": 1500,
-              "messages": [
-                  {"role": "user", "content": prompt}
-              ]
-          }
-
-          request = urllib.request.Request(
-              "https://api.anthropic.com/v1/messages",
-              data=json.dumps(payload).encode("utf-8"),
-              headers={
-                  "x-api-key": api_key,
-                  "anthropic-version": "2023-06-01",
-                  "content-type": "application/json"
-              },
-              method="POST"
-          )
-
-          try:
-              with urllib.request.urlopen(request, timeout=60) as response:
-                  result = json.loads(response.read().decode("utf-8"))
-              for item in result.get("content", []):
-                  if item.get("type") == "text":
-                      print(item["text"])
-          except Exception as e:
-              print("API呼び出しに失敗しました:", str(e))
-              raise
-          PY
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm test

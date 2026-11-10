@@ -1,3 +1,4 @@
+import { budgetEnv, adaptDB, testDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -12,27 +13,10 @@ test("cloud drafts retain input source records even when the AI omits citations"
       "utf8",
     ),
   );
-  const D1 = {
-    prepare(sql) {
-      return {
-        params: [],
-        bind(...args) {
-          this.params = args;
-          return this;
-        },
-        async run() {
-          return {
-            meta: {
-              changes: Number(db.prepare(sql).run(...this.params).changes),
-            },
-          };
-        },
-      };
-    },
-  };
+  const D1 = adaptDB(db);
   const env = {
     JARVIS_ACCESS_PASSWORD: "test",
-    ANTHROPIC_API_KEY: "fake",
+    ...budgetEnv, ANTHROPIC_API_KEY: "fake",
     JARVIS_DB: D1,
   };
   const context = researchPacket([

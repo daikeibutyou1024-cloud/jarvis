@@ -1,3 +1,4 @@
+import { saveLocalDraft } from "../lib/local-drafts.js";
 import { chapterPlan } from "../lib/paid-chapter.js";
 import {
   PAID_FORMAT,
@@ -66,6 +67,7 @@ let page = "overview",
   busy = false,
   password = "",
   authPending = null;
+let currentDocument = {projectId:crypto.randomUUID(),revision:0}, localRevision = 0;
 const history = [];
 let research = null;
 let currentGeneration = null,
@@ -112,27 +114,24 @@ function authenticate() {
 async function request(url, method = "GET", body) {
   const secret = await authenticate();
   if (!secret) throw Error("認証をキャンセルしました");
-  const response = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-jarvis-password": secret,
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  let data;
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),75000);
+  let response,data;
   try {
-    data = await response.json();
-  } catch {
-    throw Error("APIの応答を読み取れません。接続先を確認してください。");
-  }
+    response=await fetch(url,{method,signal:controller.signal,headers:{"Content-Type":"application/json","x-jarvis-password":secret},...(body?{body:JSON.stringify(body)}:{})});
+    data=await response.json();
+  }catch(error){
+    throw Error(error.name==="AbortError"?"通信がタイムアウトしました。自動再試行しません。保存・実行履歴を取得して結果を確認してください":"APIの応答を読み取れません。再実行前に保存・実行履歴を確認してください");
+  }finally{clearTimeout(timer);}
   if (!response.ok) {
     if (response.status === 401) {
       password = "";
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
     }
-    throw Error(data.error || "API通信に失敗しました");
+    const error=Error(data.error || "API通信に失敗しました");
+    error.data=data;
+    throw error;
   }
   return data;
 }
@@ -223,12 +222,15 @@ function setOutput(
   reviewed = false,
   generation = null,
   evidence = "",
+  document = null,
 ) {
   const legacyPaid =
     dept === "content" &&
     !generation?.project &&
     $("format").value === PAID_FORMAT;
   if (legacyPaid) reviewed = false;
+  currentDocument=document || generation?.document || {projectId:generation?.project?.id || crypto.randomUUID(),revision:0};
+  localRevision=0;
   $("output").value = text;
   outputDepartment = dept in departments ? dept : "content";
   currentGeneration =
@@ -271,6 +273,7 @@ function refreshPaid(render = false) {
     }
   }
   if (project.missing.length) project.status = "incomplete";
+  project.id=currentDocument.projectId;
   if (old?.brief) project.brief = old.brief;
   if (old?.generationState) project.generationState = old.generationState;
   project.sections = project.sections.map((s) => ({
@@ -300,7 +303,8 @@ function refreshPaid(render = false) {
 function reviewLabel() {
   const panel = $("paid-content-status");
   panel.hidden = !currentGeneration?.project || outputDepartment !== "content";
-  $("save-paid-cloud").hidden = panel.hidden;
+  $("save-paid-cloud").hidden = !$("output").value;
+  $("document-state").textContent=`案件 ${currentDocument.projectId} / クラウド版 ${currentDocument.revision} / 端末版 ${localRevision}`;
   if (!panel.hidden) {
     const p = currentGeneration.project;
     panel.textContent =
@@ -344,6 +348,8 @@ function setBusy(value) {
     "continue-local",
     "continue-cloud",
     "manual-complete",
+    "save-paid-cloud",
+    "save-draft",
   ])
     $(id).disabled = value;
 }
@@ -413,11 +419,15 @@ async function generate(cloud, continuation = false) {
       : "AIが下書きを作成しています…",
   );
   const dept = department;
+  const priorLocalRevision=localRevision;
+  const targetDocument=options?.mode && options.mode!=="full"?{...currentDocument}:{projectId:crypto.randomUUID(),revision:0};
   try {
     const data = cloud
       ? await request("/api/business/jobs", "POST", {
           ...b,
           department: dept,
+          projectId:targetDocument.projectId,
+          expectedRevision:targetDocument.revision,
           context: evidence,
           ...(options ? { generation: options } : {}),
         })
@@ -438,9 +448,11 @@ async function generate(cloud, continuation = false) {
       withEvidence,
       dept,
       false,
-      data.generation || unknownGeneration(),
+      {...(data.generation || unknownGeneration()),document:data.generation?.document || targetDocument},
       evidence,
     );
+    if(targetDocument.projectId===currentDocument.projectId && options?.mode!=="full")localRevision=priorLocalRevision;
+    reviewLabel();
     const incomplete = dept === "content" && !canApprove(currentGeneration);
     $("ai-status").textContent = incomplete
       ? generationLabel(currentGeneration)
@@ -462,6 +474,10 @@ async function generate(cloud, continuation = false) {
             : "下書きを作成しました。出典・内容を確認してください。",
     );
   } catch (e) {
+    if(e.data?.recovery){
+      const r=e.data.recovery;
+      setOutput(r.output,dept,false,r.generation,evidence,targetDocument);
+    }
     say(e.message);
     if (cloud) $("db-status").textContent = "操作失敗 / 要確認";
     else $("ai-status").textContent = "操作失敗 / 要確認";
@@ -540,7 +556,7 @@ function renderDrafts() {
       open = document.createElement("button"),
       del = document.createElement("button");
     text.textContent = d.topic || "無題";
-    small.textContent = `${d.date || ""} / ${d.department ? departments[d.department]?.name || d.department : d.goal || "旧下書き"} / ${d.department === "content" && !canApprove(d.generation) ? generationLabel(d.generation) : d.approved ? "確認済み" : "要確認"}`;
+    small.textContent = `端末版 ${d.localRevision||0} / ${d.date || ""} / ${d.department ? departments[d.department]?.name || d.department : d.goal || "旧下書き"} / ${d.department === "content" && !canApprove(d.generation) ? generationLabel(d.generation) : d.approved ? "確認済み" : "要確認"}`;
     text.append(small);
     open.textContent = "開く";
     open.onclick = () => {
@@ -553,7 +569,10 @@ function renderDrafts() {
         !!d.approved,
         d.generation,
         d.evidence || "",
+        d.document || d.generation?.document || null,
       );
+      localRevision=d.localRevision||0;
+      reviewLabel();
       for (const id of ["topic", "audience", "format", "notes"])
         if (typeof d[id] === "string") $(id).value = d[id];
       $("output").focus();
@@ -572,58 +591,72 @@ function renderDrafts() {
     root.append(li);
   });
 }
-$("save-draft").onclick = () => {
-  refreshPaid(true);
-  reviewLabel();
-  if (!$("output").value.trim()) return say("保存する原稿がありません");
-  const next = [
-    {
-      ...brief(),
-      department: outputDepartment,
-      date: new Date().toLocaleString("ja-JP"),
-      text: $("output").value,
-      approved,
-      generation: currentGeneration,
-      evidence: currentEvidence,
-    },
-    ...drafts,
-  ].slice(0, 30);
-  if (write(keys.drafts, next)) {
-    drafts = next;
-    renderDrafts();
-    say("この端末に下書きを保存しました");
-  }
+$("save-draft").onclick = async () => {
+  if(busy)return;
+  refreshPaid(true); reviewLabel();
+  if(!$("output").value.trim())return say("保存する原稿がありません");
+  try{
+    const saved=await saveLocalDraft(localStorage,navigator.locks,keys.drafts,{
+      ...brief(),department:outputDepartment,date:new Date().toLocaleString("ja-JP"),text:$("output").value,
+      approved,generation:currentGeneration,evidence:currentEvidence,document:{...currentDocument},
+    },localRevision);
+    drafts=saved.rows;localRevision=saved.revision;renderDrafts();reviewLabel();say("この端末に新しい版を保存しました");
+  }catch(e){say(e.message);}
 };
+window.addEventListener("storage",e=>{if(e.key===keys.drafts){drafts=read(keys.drafts,[]);renderDrafts();}});
 $("save-paid-cloud").onclick = async () => {
-  if (busy || !currentGeneration?.project) return;
+  if (busy || !$("output").value.trim()) return;
   refreshPaid(true);
+  setBusy(true);
   try {
-    const p = currentGeneration.project;
-    const d = await request("/api/business/paid-drafts", "POST", {
-      id: p.id,
-      topic: $("topic").value,
-      text: $("output").value,
-      evidence: currentEvidence,
-      generation: currentGeneration,
-      manualComplete: currentGeneration.articleStatus === "manual_complete",
-      approved,
+    const p=currentGeneration?.project;
+    const d=await request(p?"/api/business/paid-drafts":"/api/business/drafts","POST",{
+      id:currentDocument.projectId,projectId:currentDocument.projectId,expectedRevision:currentDocument.revision,
+      department:outputDepartment,format:brief().format,topic:$("topic").value,text:$("output").value,evidence:currentEvidence,
+      generation:currentGeneration,manualComplete:currentGeneration?.articleStatus==="manual_complete",approved,
     });
-    setOutput(
-      d.output,
-      "content",
-      d.generation.project.humanReview.status === "approved",
-      d.generation,
-      p.evidence,
-    );
-    say(
-      "有料原稿と検査・確認状態をクラウドに保存しました。AI APIは利用していません。",
-    );
+    currentDocument=d.generation?.document || (d.projectId ? {projectId:d.projectId,revision:d.revision}:currentDocument);
+    if(currentGeneration)currentGeneration.document=currentDocument;
+    if(d.generation){currentGeneration=d.generation;$("output").value=d.output;}
+    reviewLabel();say("新しい版をクラウドに保存しました。AI APIは利用していません。");
     await refreshCloud();
-  } catch (e) {
-    say(e.message);
-  } finally {
-    reviewLabel();
-  }
+  }catch(e){say(e.message);}finally{setBusy(false);reviewLabel();}
+};
+function openVersion(d){
+  navigate(d.department || "content");
+  $("topic").value=d.topic;
+  if(d.format)$("format").value=d.format;
+  for(const key of ["topic","format","audience","notes"])
+    if(typeof d.generation?.project?.brief?.[key]==="string")$(key).value=d.generation.project.brief[key];
+  setOutput(d.output,d.department,d.approved===true,d.generation,d.evidence,{projectId:d.projectId,revision:d.revision});
+  say("保存した版を開きました。過去の版は最新版を上書きできません。");
+}
+$("revision-refresh").onclick=async()=>{
+  try{
+    const data=await request("/api/business/drafts?projectId="+encodeURIComponent(currentDocument.projectId));
+    const root=$("revision-list");root.replaceChildren();
+    for(const d of data.revisions){const li=document.createElement("li"),b=document.createElement("button");b.textContent=`版 ${d.revision} / ${d.updated_at} UTC を開く`;b.onclick=()=>openVersion(d);li.append(b);root.append(li);}
+    if(!data.revisions.length)root.textContent="クラウド版履歴はありません";
+  }catch(e){say(e.message);}
+};
+$("usage-refresh").onclick=async()=>{
+  try{
+    const d=await request("/api/business/usage");
+    $("usage-summary").textContent=`${d.month} UTC / 月額予算 $${d.budgetUSD??"未設定"} / 確定・予約＋開始額 $${(d.committedMicroUSD/1e6+Number(d.openingUSD||0)).toFixed(6)}。${d.notice}`;
+    const root=$("usage-list");root.replaceChildren();
+    for(const op of d.operations){
+      const li=document.createElement("li");li.textContent=`${op.id} / ${op.purpose} / ${op.state} / $${(op.charged_micro/1e6).toFixed(6)}`;
+      if(["uncertain","interrupted","overrun"].includes(op.state)){
+        const form=document.createElement("form"),amount=document.createElement("input"),note=document.createElement("input"),check=document.createElement("input"),label=document.createElement("label"),button=document.createElement("button");
+        amount.type="number";amount.min="0";amount.step="0.000001";amount.required=true;amount.placeholder="請求確認額（USD）";amount.setAttribute("aria-label","請求確認額（USD）");
+        note.required=true;note.maxLength=500;note.placeholder="請求履歴を確認したメモ";note.setAttribute("aria-label","請求確認メモ");
+        check.type="checkbox";check.required=true;label.append(check,document.createTextNode("請求を確認しました"));button.textContent="確認額で照合する";
+        form.append(amount,note,label,button);form.onsubmit=async e=>{e.preventDefault();button.disabled=true;try{await request("/api/business/usage","POST",{id:op.id,chargedMicroUSD:Math.round(Number(amount.value)*1e6),note:note.value,confirmed:check.checked});say("利用額を照合しました。再試行は行いません。");await $("usage-refresh").onclick();}catch(error){say(error.message);}finally{button.disabled=false;}};
+        li.append(form);
+      }
+      root.append(li);
+    }
+  }catch(e){say(e.message);}
 };
 async function refreshCloud() {
   const button = $("cloud-refresh");
@@ -643,6 +676,11 @@ async function refreshCloud() {
           created_at: d.updated_at,
         });
     } catch {}
+    const versioned=await request("/api/business/drafts");
+    for(const d of versioned.drafts || []){
+      const li=document.createElement("li"),button=document.createElement("button");
+      button.textContent=`${d.topic} / 案件 ${d.projectId} / 版 ${d.revision}`;button.onclick=()=>openVersion(d);li.append(button);root.append(li);
+    }
     for (const job of data.jobs) {
       const li = document.createElement("li"),
         label = document.createElement("div"),

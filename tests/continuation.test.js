@@ -1,3 +1,4 @@
+import { budgetEnv, adaptDB, testDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -39,40 +40,7 @@ const generated = (text, stop_reason = "end_turn") =>
     "anthropic",
     "mock",
   );
-function db() {
-  const raw = new DatabaseSync(":memory:");
-  raw.exec(
-    readFileSync(
-      new URL("../migrations/0001_business_jobs.sql", import.meta.url),
-      "utf8",
-    ),
-  );
-  return {
-    raw,
-    prepare(sql) {
-      return {
-        args: [],
-        bind(...args) {
-          this.args = args;
-          return this;
-        },
-        async run() {
-          return {
-            meta: {
-              changes: Number(raw.prepare(sql).run(...this.args).changes),
-            },
-          };
-        },
-        async first() {
-          return raw.prepare(sql).get(...this.args) || null;
-        },
-        async all() {
-          return { results: raw.prepare(sql).all(...this.args) };
-        },
-      };
-    },
-  };
-}
+function db(){return testDB();}
 const req = (body) =>
   new Request("http://localhost/api", {
     method: "POST",
@@ -85,7 +53,7 @@ const req = (body) =>
 const env = (D1) => ({
   JARVIS_DB: D1,
   JARVIS_ACCESS_PASSWORD: "test",
-  ANTHROPIC_API_KEY: "fake",
+  ...budgetEnv, ANTHROPIC_API_KEY: "fake",
 });
 test("continuation uses a dedicated request with title, outline, inferred completed sections, current chapter and tail", () => {
   const base = buildPrompt(

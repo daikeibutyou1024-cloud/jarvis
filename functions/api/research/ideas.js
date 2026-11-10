@@ -3,7 +3,7 @@ import {
   missing,
   responseJSON,
 } from "../../../lib/research-network.js";
-import { reserveAI } from "../../../lib/ai-quota.js";
+import { runAI, aiFailure } from "../../../lib/ai-runtime.js";
 import {
   validateEvidence,
   ideaPrompt,
@@ -12,7 +12,7 @@ import {
 export async function onRequestPost({ request, env }) {
   const auth = denied(request, env);
   if (auth) return auth;
-  if (!env.ANTHROPIC_API_KEY) return missing("Claude APIが未設定です");
+
   let evidence, topic, prompt;
   try {
     if (Number(request.headers.get("Content-Length")) > 50000) throw Error();
@@ -32,39 +32,9 @@ export async function onRequestPost({ request, env }) {
     );
   }
   try {
-    if (!(await reserveAI(env, "ideas")))
-      return missing(
-        "本日のAI利用上限です（全体10回・企画提案2回、UTC・失敗含む）",
-        429,
-      );
-    const controller = new AbortController(),
-      timer = setTimeout(() => controller.abort(), 30000);
-    let r, data;
-    try {
-      r = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": env.ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-          max_tokens: 3200,
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      data = await r.json();
-    } finally {
-      clearTimeout(timer);
-    }
-    if (!r.ok) throw Error();
+    const result = await runAI(env, "ideas", prompt, 3200);
     const ideas = validateIdeas(
-      (data.content || [])
-        .filter((x) => x.type === "text")
-        .map((x) => x.text)
-        .join("\n"),
+      result.text,
       evidence,
     );
     await env.JARVIS_DB.prepare(
@@ -83,7 +53,8 @@ export async function onRequestPost({ request, env }) {
       label: "企画・全評価はAI仮説",
       createdAt: new Date(createdAt * 1000).toISOString(),
     });
-  } catch {
+  } catch (error) {
+    if (aiFailure(error)) return responseJSON(aiFailure(error),error.status);
     return missing(
       "企画の生成・検証・保存に失敗しました。未取得情報を補完せず、利用回数は消費済みの場合があります",
     );

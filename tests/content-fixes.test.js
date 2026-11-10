@@ -1,3 +1,4 @@
+import { budgetEnv, adaptDB, testDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -22,40 +23,7 @@ import {
   manualRecord,
 } from "../assets/research-data.js";
 import { validateEvidence } from "../lib/research-ideas.js";
-function store() {
-  const db = new DatabaseSync(":memory:");
-  db.exec(
-    readFileSync(
-      new URL("../migrations/0001_business_jobs.sql", import.meta.url),
-      "utf8",
-    ),
-  );
-  return {
-    db,
-    prepare(sql) {
-      return {
-        args: [],
-        bind(...a) {
-          this.args = a;
-          return this;
-        },
-        async first() {
-          return db.prepare(sql).get(...this.args) || null;
-        },
-        async all() {
-          return { results: db.prepare(sql).all(...this.args) };
-        },
-        async run() {
-          return {
-            meta: {
-              changes: Number(db.prepare(sql).run(...this.args).changes),
-            },
-          };
-        },
-      };
-    },
-  };
-}
+function store(){return testDB();}
 const req = (body) =>
   new Request("http://localhost/api", {
     method: "POST",
@@ -68,7 +36,7 @@ const req = (body) =>
 const config = (db) => ({
   JARVIS_DB: db,
   JARVIS_ACCESS_PASSWORD: "test",
-  ANTHROPIC_API_KEY: "fake",
+  ...budgetEnv, ANTHROPIC_API_KEY: "fake",
 });
 function response(reason = "end_turn", text = "原稿の続き。") {
   return Response.json({

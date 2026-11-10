@@ -1,3 +1,4 @@
+import { budgetEnv, adaptDB, testDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
@@ -79,7 +80,7 @@ function env(db) {
   return {
     JARVIS_DB: db,
     JARVIS_ACCESS_PASSWORD: "test",
-    ANTHROPIC_API_KEY: "fake",
+    ...budgetEnv, ANTHROPIC_API_KEY: "fake",
   };
 }
 const pageReq = (

@@ -44,3 +44,9 @@ CONTENTの未完成状態・章/続き生成・資料更新確認は [docs/CONTE
 続き生成専用の指示・重複検査・原稿保護は [docs/CONTENT_CONTINUATION_FIX.md](docs/CONTENT_CONTINUATION_FIX.md) を参照。
 
 有料記事の制作手順と制限: [PAID_CONTENT_WORKFLOW.md](docs/PAID_CONTENT_WORKFLOW.md)
+
+## 保存・費用管理
+
+案件ID・原稿の版履歴、保存競合の拒否、共通AIタイムアウトと中断記録、USD月額予算の事前予約を追加。全形式のAIを使わないクラウド保存に対応。
+**PreviewでAIを使う前に `AI_MONTHLY_BUDGET_USD` と `AI_PRICING_JSON` の設定が必要。未設定では課金呼び出しを停止する。** 請求実額の自動取得ではない。
+旧データの扱い・料金設定・照合・検証範囲は [STABILITY.md](docs/STABILITY.md) を参照。

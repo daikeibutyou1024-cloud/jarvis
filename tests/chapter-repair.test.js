@@ -1,3 +1,4 @@
+import { budgetEnv, adaptDB, testDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { article, evidence } from "./paid-fixture.js";
@@ -151,32 +152,11 @@ test("actual APIs reject filled targets before a billable call and preserve save
       "utf8",
     ),
   );
-  const adapter = {
-    prepare(sql) {
-      return {
-        args: [],
-        bind(...args) {
-          this.args = args;
-          return this;
-        },
-        async first() {
-          return db.prepare(sql).get(...this.args) || null;
-        },
-        async all() {
-          return { results: db.prepare(sql).all(...this.args) };
-        },
-        async run() {
-          return {
-            meta: { changes: db.prepare(sql).run(...this.args).changes },
-          };
-        },
-      };
-    },
-  };
+  const adapter = adaptDB(db);
   const env = {
     JARVIS_DB: adapter,
     JARVIS_ACCESS_PASSWORD: "test",
-    ANTHROPIC_API_KEY: "mock",
+    ...budgetEnv, ANTHROPIC_API_KEY: "mock",
   };
   let calls = 0,
     answer = part;
@@ -204,6 +184,7 @@ test("actual APIs reject filled targets before a billable call and preserve save
         context: evidence,
         prompt: "章生成",
         generation: o,
+        expectedRevision:db.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE name='document_revisions'").get().n?db.prepare("SELECT COALESCE(MAX(revision),0) AS n FROM document_revisions WHERE project_id=?").get(o.projectId).n:0,
       }),
     });
   try {

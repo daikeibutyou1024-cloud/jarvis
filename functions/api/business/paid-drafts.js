@@ -1,3 +1,4 @@
+import { saveRevision, revisionOf, projectId, seedLegacyPaid } from "../../../lib/documents.js";
 import {
   inspectPaid,
   renderPaidSources,
@@ -24,13 +25,14 @@ export async function onRequestGet({ request, env }) {
   if (error) return error;
   try {
     await table(env);
+    await revisionOf(env.JARVIS_DB, "schema-init");
     const rows = await env.JARVIS_DB.prepare(
-      "SELECT * FROM paid_content_drafts ORDER BY updated_at DESC LIMIT 20",
+      "SELECT p.*,(SELECT COALESCE(MAX(revision),0) FROM document_revisions WHERE project_id=p.id) AS revision FROM paid_content_drafts p ORDER BY updated_at DESC LIMIT 20",
     ).all();
     return json({
       drafts: (rows.results || []).map(({ generation_json, ...row }) => ({
         ...row,
-        generation: JSON.parse(generation_json),
+        generation: {...JSON.parse(generation_json), document:{projectId:row.id,revision:row.revision}},
       })),
     });
   } catch {
@@ -41,7 +43,9 @@ export async function onRequestPost({ request, env }) {
   const error = denied(request, env);
   if (error) return error;
   try {
-    const b = await request.json();
+    const raw=await request.text();
+    if(raw.length>250000)return json({error:"保存内容が大きすぎます"},400);
+    const b = JSON.parse(raw);
     if (
       typeof b.text !== "string" ||
       !b.text.trim() ||
@@ -56,10 +60,11 @@ export async function onRequestPost({ request, env }) {
         { error: "原稿・テーマ・資料の形式または長さが不正です" },
         400,
       );
-    const id =
-      typeof b.id === "string" && /^[a-zA-Z0-9-]{1,80}$/.test(b.id)
-        ? b.id
-        : crypto.randomUUID();
+    await table(env);
+    const id = projectId(b.id);
+    const existing = await env.JARVIS_DB.prepare("SELECT * FROM paid_content_drafts WHERE id=?").bind(id).first();
+    if (existing && b.expectedRevision === undefined) return json({error:"保存前に最新版を読み直してください",code:"SAVE_CONFLICT",currentRevision:await revisionOf(env.JARVIS_DB,id)},409);
+    if(existing) await seedLegacyPaid(env.JARVIS_DB,id);
     // Recompute content requirements. Never trust client-supplied missing/approved flags.
     const project = inspectPaid(b.text, b.evidence, { id });
     const incoming = b.generation || unknownGeneration();
@@ -117,13 +122,14 @@ export async function onRequestPost({ request, env }) {
     }));
     const output = renderPaidSources(b.text, project);
     await table(env);
-    await env.JARVIS_DB.prepare(
-      "INSERT INTO paid_content_drafts(id,topic,output,generation_json) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET topic=excluded.topic,output=excluded.output,generation_json=excluded.generation_json,updated_at=CURRENT_TIMESTAMP",
-    )
-      .bind(id, b.topic, output, JSON.stringify(generation))
-      .run();
+    const version = await saveRevision(env.JARVIS_DB,id,b.expectedRevision??0,{
+      department:"content",topic:b.topic,output,evidence:b.evidence,format:PAID_FORMAT,generation,approved:project.humanReview.status==="approved",
+    },writeId=>env.JARVIS_DB.prepare(
+      "INSERT INTO paid_content_drafts(id,topic,output,generation_json) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?) ON CONFLICT(id) DO UPDATE SET topic=excluded.topic,output=excluded.output,generation_json=excluded.generation_json,updated_at=CURRENT_TIMESTAMP"
+    ).bind(id,b.topic,output,JSON.stringify(generation),writeId));
+    generation.document=version;
     return json({ id, output, generation }, 201);
-  } catch {
-    return json({ error: "有料原稿を保存できませんでした" }, 400);
+  } catch (error) {
+    return json({ error: error.code==="SAVE_CONFLICT"?error.message:"有料原稿を保存できませんでした",code:error.code,currentRevision:error.currentRevision }, error.status||400);
   }
 }

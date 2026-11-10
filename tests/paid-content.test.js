@@ -1,3 +1,4 @@
+import { adaptDB } from "./runtime-fixture.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -131,25 +132,7 @@ test("cloud draft storage revalidates, restores review and source snapshots with
   const db = new DatabaseSync(":memory:");
   const env = {
     JARVIS_ACCESS_PASSWORD: "test",
-    JARVIS_DB: {
-      prepare(sql) {
-        return {
-          args: [],
-          bind(...args) {
-            this.args = args;
-            return this;
-          },
-          async run() {
-            return {
-              meta: { changes: db.prepare(sql).run(...this.args).changes },
-            };
-          },
-          async all() {
-            return { results: db.prepare(sql).all(...this.args) };
-          },
-        };
-      },
-    },
+    JARVIS_DB: adaptDB(db),
   };
   const real = globalThis.fetch;
   globalThis.fetch = () => {
@@ -180,7 +163,7 @@ test("cloud draft storage revalidates, restores review and source snapshots with
     let d = await r.json();
     assert.equal(d.generation.project.humanReview.status, "pending");
     assert.equal(canApprove(d.generation), false);
-    r = await send(article);
+    r = await send(article,{expectedRevision:1});
     d = await r.json();
     assert.equal(d.generation.project.humanReview.status, "approved");
     assert.equal(d.generation.project.id, "project-1");

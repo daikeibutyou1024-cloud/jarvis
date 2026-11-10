@@ -1,12 +1,12 @@
 import {
-  normalizeResult,
   generationOptions,
   generationPrompt,
   composeResult,
   EVIDENCE_SEPARATOR,
   unknownGeneration,
 } from "../../../lib/generation.js";
-import { reserveAI } from "../../../lib/ai-quota.js";
+import { runAI, aiFailure, recoverAI, aiConfig } from "../../../lib/ai-runtime.js";
+import { projectId, checkRevision, saveRevision } from "../../../lib/documents.js";
 import { buildPrompt, departments } from "../../../assets/business.js";
 // Cloudflare Pages Function: authorized job execution and read-only status.
 // Requires existing JARVIS_DB and JARVIS_ACCESS_PASSWORD bindings.
@@ -38,47 +38,6 @@ const authError = (request, env) => {
     );
   return null;
 };
-async function createDraft(env, prompt) {
-  const provider = String(env.AI_PROVIDER || "anthropic").toLowerCase();
-  if (provider === "openai") {
-    if (!env.OPENAI_API_KEY) throw new Error("OpenAI API未設定");
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + env.OPENAI_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: env.OPENAI_MODEL || "gpt-4.1-mini",
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error("OpenAI API HTTP " + response.status);
-    return normalizeResult(data, "openai", env.OPENAI_MODEL || "gpt-4.1-mini");
-  }
-  if (provider !== "anthropic") throw new Error("AI_PROVIDERが不正です");
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-      max_tokens: 2500,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error("AI provider HTTP " + response.status);
-  return normalizeResult(
-    data,
-    "anthropic",
-    env.ANTHROPIC_MODEL || "claude-sonnet-4-6",
-  );
-}
 async function metadataTable(db) {
   await db
     .prepare(
@@ -91,6 +50,7 @@ export async function onRequestGet({ request, env }) {
   if (denied) return denied;
   if (!env.JARVIS_DB) return json({ error: "D1未接続" }, 503);
   try {
+    await recoverJobs(env.JARVIS_DB);
     await metadataTable(env.JARVIS_DB);
     const result = await env.JARVIS_DB.prepare(
       "SELECT b.id,b.job_type,b.topic,b.status,b.output,b.error,b.created_at,b.updated_at,g.generation_json FROM business_jobs b LEFT JOIN business_job_generations g ON g.job_id=b.id ORDER BY b.created_at DESC LIMIT 20",
@@ -122,7 +82,7 @@ export async function onRequestPost({ request, env }) {
     return json({ error: "Claude API未設定" }, 503);
   if (provider === "openai" && !env.OPENAI_API_KEY)
     return json({ error: "OpenAI API未設定" }, 503);
-  let id = null;
+  let id = null, recovery = null;
   try {
     let body;
     try {
@@ -175,11 +135,12 @@ export async function onRequestPost({ request, env }) {
         400,
       );
     const finalPrompt = generationPrompt(prompt, options);
-    if (!(await reserveAI(env, "job")))
-      return json(
-        { error: "本日のAI利用上限（全体10回・記事5回・UTC・失敗含む）です" },
-        429,
-      );
+    const caseId = projectId(body.projectId || options.projectId);
+    const expected = body.expectedRevision ?? 0;
+    await checkRevision(env.JARVIS_DB,caseId,expected);
+    options.projectId = caseId;
+    aiConfig(env,finalPrompt,2500);
+    await recoverJobs(env.JARVIS_DB);
     // Daily cost guardrail (UTC): maximum five attempted generations.
     id = crypto.randomUUID();
     const reservation = await env.JARVIS_DB.prepare(
@@ -192,7 +153,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "本日の生成上限（5件）に達しました" }, 429);
     }
     await metadataTable(env.JARVIS_DB);
-    const result = await createDraft(env, finalPrompt);
+    const result = await runAI(env, "job", finalPrompt, 2500, id);
     const { body: answer, generation } = composeResult(result, options);
     const evidence = body.context || "";
     const output =
@@ -200,22 +161,20 @@ export async function onRequestPost({ request, env }) {
         ? answer + EVIDENCE_SEPARATOR + evidence
         : answer;
     if (!output) throw new Error("empty response");
-    await env.JARVIS_DB.prepare(
-      "UPDATE business_jobs SET status='draft',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
-    )
-      .bind(output, id)
-      .run();
-    await env.JARVIS_DB.prepare(
-      "INSERT OR REPLACE INTO business_job_generations(job_id,generation_json) VALUES(?,?)",
-    )
-      .bind(id, JSON.stringify(generation))
-      .run();
+    recovery={output,generation};
+    generation.document={projectId:caseId,revision:expected+1};
+    await saveRevision(env.JARVIS_DB,caseId,expected,{
+      department,topic,output,evidence,format:body.format||"",generation,approved:false,
+    },writeId=>[
+      env.JARVIS_DB.prepare("UPDATE business_jobs SET status='draft',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='running' AND EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(output,id,writeId),
+      env.JARVIS_DB.prepare("INSERT INTO business_job_generations(job_id,generation_json) SELECT ?,? WHERE EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(id,JSON.stringify(generation),writeId),
+    ],{sql:"EXISTS(SELECT 1 FROM business_jobs WHERE id=? AND status='running')",args:[id]});
     return json({ id, status: "draft", output, body: answer, generation }, 201);
   } catch (error) {
     if (id) {
       try {
         await env.JARVIS_DB.prepare(
-          "UPDATE business_jobs SET status='failed',error=?,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+          "UPDATE business_jobs SET status='failed',error=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='running'",
         )
           .bind(
             error.code === "INVALID_CONTINUATION"
@@ -226,6 +185,8 @@ export async function onRequestPost({ request, env }) {
           .run();
       } catch {}
     }
+    if (aiFailure(error)) return json(aiFailure(error),error.status);
+    if (error.code === "SAVE_CONFLICT") return json({error:error.message,code:error.code,currentRevision:error.currentRevision,recovery},409);
     if (error.code === "INVALID_CONTINUATION") {
       if (id) {
         try {
@@ -252,4 +213,9 @@ export async function onRequestPost({ request, env }) {
       503,
     );
   }
+}
+
+export async function recoverJobs(db) {
+  await recoverAI(db);
+  await db.prepare("UPDATE business_jobs SET status='failed',error='処理が中断しました。自動再試行は行いません',updated_at=CURRENT_TIMESTAMP WHERE status='running' AND (created_at<datetime('now','-120 seconds') OR id IN (SELECT job_id FROM ai_operations WHERE state='interrupted'))").run();
 }

@@ -333,6 +333,7 @@
           <section class="panel result-panel">
             <div class="section-heading">
               <h3>AI OUTPUT</h3>
+              <span id="document-state" class="badge"></span>
               <span id="review-state" class="badge">未生成</span>
             </div>
             <textarea
@@ -350,7 +351,7 @@
             <div class="actions">
               <button id="save-draft">端末に保存</button
               ><button id="save-paid-cloud" hidden>
-                有料原稿をクラウド保存（AI利用なし）</button
+                クラウドに版を保存（AI利用なし）</button
               ><button id="copy">コピー</button
               ><button id="approve">確認済みにする</button
               ><button id="handoff">次の部門へ引き継ぐ</button>
@@ -473,11 +474,13 @@
           <button id="cloud-refresh">クラウド下書きを取得</button>
         </div>
         <p class="hint">
-          端末保存は最新30件。クラウドは最新20件を表示します。端末の下書きや手入力記録は他端末へ同期されません。
+          端末保存は版履歴を保持します（容量上限あり）。クラウド一覧は各種類の最新20件を表示します。端末の下書きや手入力記録は他端末へ同期されません。
         </p>
         <h3>この端末</h3>
         <ul id="drafts" class="draft-list"></ul>
         <h3>D1クラウド</h3>
+        <button id="revision-refresh">開いている案件の版履歴</button><ul id="revision-list"></ul>
+        <button id="usage-refresh">AI予算・実行履歴を取得</button><p id="usage-summary"></p><ul id="usage-list"></ul>
         <p id="cloud-status" role="status">未取得</p>
         <ul id="cloud-jobs" class="draft-list"></ul>
       </section>
