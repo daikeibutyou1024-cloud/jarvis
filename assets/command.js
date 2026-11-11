@@ -1,3 +1,4 @@
+import {initDocumentCopy} from "./document-copy.js";
 import {initPreflight} from "./preflight.js";
 import {initBusinessStore} from "./business-store.js";
 import {initOperations} from "./operations.js";
@@ -1049,3 +1050,5 @@ businessStore=initBusinessStore({
 });
 
 initPreflight({request,say,getBusy:()=>busy});
+
+initDocumentCopy({request,say,getCurrentDocument:()=>({...currentDocument}),getBusy:()=>busy,setBusy,assertCanReplace:()=>editorial.assertCanReplace(),applyCopy:openVersion});

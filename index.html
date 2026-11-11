@@ -501,6 +501,13 @@
         <ul id="drafts" class="draft-list"></ul>
         <h3>D1クラウド</h3>
         <button id="revision-refresh">開いている案件の版履歴</button><ul id="revision-list"></ul>
+        <details><summary>保存版から別案件として再開</summary>
+          <p class="hint">版履歴から開いた過去版も複製できます。元の案件と全履歴を残し、別案件の版1として保存します。編集中の未保存内容は含みません。複製先の全文確認・公開確認はやり直してください。</p>
+          <button id="copy-preview">開いている案件・版を確認（AI利用なし）</button><p id="copy-status" role="status">未確認・未複製</p>
+          <label for="copy-content">複製元の保存内容</label><textarea id="copy-content" rows="10" readonly></textarea>
+          <label><input id="copy-confirmed" type="checkbox">保存版の内容を確認し、別案件として保存する</label>
+          <button id="copy-save">確認した保存版を別案件へ複製</button><button id="copy-open">複製した案件を開く</button>
+        </details>
         <button id="usage-refresh">AI予算・実行履歴を取得</button><p id="usage-summary"></p><ul id="usage-list"></ul>
         <p id="cloud-status" role="status">未取得</p>
         <ul id="cloud-jobs" class="draft-list"></ul>
