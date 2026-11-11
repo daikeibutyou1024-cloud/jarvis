@@ -1,3 +1,4 @@
+import {initAIUsage} from "./ai-usage.js";
 import {initDocumentCopy} from "./document-copy.js";
 import {initPreflight} from "./preflight.js";
 import {initBusinessStore} from "./business-store.js";
@@ -670,25 +671,7 @@ $("revision-refresh").onclick=async()=>{
     if(!data.revisions.length)root.textContent="クラウド版履歴はありません";
   }catch(e){say(e.message);}
 };
-$("usage-refresh").onclick=async()=>{
-  try{
-    const d=await request("/api/business/usage");
-    $("usage-summary").textContent=`${d.month} UTC / 月額予算 $${d.budgetUSD??"未設定"} / 確定・予約＋開始額 $${(d.committedMicroUSD/1e6+Number(d.openingUSD||0)).toFixed(6)}。${d.notice}`;
-    const root=$("usage-list");root.replaceChildren();
-    for(const op of d.operations){
-      const li=document.createElement("li");li.textContent=`${op.id} / ${op.purpose} / ${op.state} / $${(op.charged_micro/1e6).toFixed(6)}`;
-      if(["uncertain","interrupted","overrun"].includes(op.state)){
-        const form=document.createElement("form"),amount=document.createElement("input"),note=document.createElement("input"),check=document.createElement("input"),label=document.createElement("label"),button=document.createElement("button");
-        amount.type="number";amount.min="0";amount.step="0.000001";amount.required=true;amount.placeholder="請求確認額（USD）";amount.setAttribute("aria-label","請求確認額（USD）");
-        note.required=true;note.maxLength=500;note.placeholder="請求履歴を確認したメモ";note.setAttribute("aria-label","請求確認メモ");
-        check.type="checkbox";check.required=true;label.append(check,document.createTextNode("請求を確認しました"));button.textContent="確認額で照合する";
-        form.append(amount,note,label,button);form.onsubmit=async e=>{e.preventDefault();button.disabled=true;try{await request("/api/business/usage","POST",{id:op.id,chargedMicroUSD:Math.round(Number(amount.value)*1e6),note:note.value,confirmed:check.checked});say("利用額を照合しました。再試行は行いません。");await $("usage-refresh").onclick();}catch(error){say(error.message);}finally{button.disabled=false;}};
-        li.append(form);
-      }
-      root.append(li);
-    }
-  }catch(e){say(e.message);}
-};
+
 async function refreshCloud() {
   const button = $("cloud-refresh");
   button.disabled = true;
@@ -1052,3 +1035,5 @@ businessStore=initBusinessStore({
 initPreflight({request,say,getBusy:()=>busy});
 
 initDocumentCopy({request,say,getCurrentDocument:()=>({...currentDocument}),getBusy:()=>busy,setBusy,assertCanReplace:()=>editorial.assertCanReplace(),applyCopy:openVersion});
+
+initAIUsage({request,say,getBusy:()=>busy});

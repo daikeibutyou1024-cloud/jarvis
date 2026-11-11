@@ -11,7 +11,7 @@
 ## 確認できること
 
 - CF_PAGES_BRANCHが開発ブランチの申告値か。値そのものやURL・DB識別子は返さない。未設定は不明として扱う。
-- business_jobs、document_revisions、editorial_reviews、ai_operations、collection_schedules、collection_runs、research_inbox、business_records、business_record_history、business_imports、business_write_guardsの必須列の存在。PRAGMA table_infoのみで確認し、未作成のテーブルを作らない。旧Google・paid_content_drafts・調査キャッシュ等の全テーブルを対象にした移行検証ではない。型・制約・索引・ユーザーデータの内容・書込権限・復元も未検証。
+- business_jobs、document_revisions、editorial_reviews、ai_operations、ai_reconciliations、collection_schedules、collection_runs、research_inbox、business_records、business_record_history、business_imports、business_write_guardsの必須列の存在。PRAGMA table_infoのみで確認し、未作成のテーブルを作らない。旧Google・paid_content_drafts・調査キャッシュ等の全テーブルを対象にした移行検証ではない。型・制約・索引・ユーザーデータの内容・書込権限・復元も未検証。
 - AIの設定形式は実行処理と同じaiConfigを再利用する。選択中providerのキー・予算・料金・開始利用額の形式を確認するが、キー・モデル文字列・料金JSON・例外原文を返さない。実APIへ接続しない。
 - AI台帳が読める場合、UTC対象月の管理値・予約、開始利用額を含む管理上の残枠、予算超過・前月未確定・超過利用による停止条件、期限超過のrunning件数。実請求ではなく、残枠があっても次回の原稿が予算内で生成できる保証はない。
 - 定期収集の全体停止・専用認証・日次上限、現在の対象時刻の設定数、実行中/期限超過、UTC日の試行数、受信箱容量。期限超過ジョブの更新・予約・日時繰越・外部取得をしない。
