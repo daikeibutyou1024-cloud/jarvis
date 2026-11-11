@@ -1,0 +1,10 @@
+{
+  "schema": "jarvis-preview-budget-plan-v1",
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-6",
+  "pricePerMillionTokens": {"input": 3, "output": 15},
+  "pricingCheckedOn": "2026-11-11",
+  "pricingSource": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "approvedMonthlyBudgetUSD": null,
+  "verifiedOpeningSpendUSD": null
+}

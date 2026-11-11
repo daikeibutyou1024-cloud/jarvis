@@ -82,3 +82,8 @@ AI費用の手動照合は、元のトークン情報を保持し、照合前後
 ## 案件別の月次振り返り
 
 対象月の公開申告・成果計測・円の収支を案件ごとにまとめて表示します。未入力を0円/0件に補わず、全体・案件・計測元を重ねて集計しません。AIや外部APIを使わない、要求時の集計です。[MONTHLY_REPORT.md](docs/MONTHLY_REPORT.md)を参照。
+
+## 本番阻害項目の確認手順
+
+実DBの分離確認、Previewでの認証・保存・再読込、AI予算の導入準備、ブラウザ実行環境、note制作から承認までの検証は [RELEASE_BLOCKERS.md](docs/RELEASE_BLOCKERS.md) に集約しました。
+`npm run test:release-http` は実APIを使わず、使い捨てDBで無料/有料noteの一連の処理を検証します。`npm run test:release-browser` は対応環境で同じ目的のブラウザ検証を実行します。どちらも本番・実Previewへの書込は行いません。
