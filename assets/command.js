@@ -1,3 +1,4 @@
+import {initMonthlyReport} from "./monthly-report.js";
 import {initAIUsage} from "./ai-usage.js";
 import {initDocumentCopy} from "./document-copy.js";
 import {initPreflight} from "./preflight.js";
@@ -1037,3 +1038,5 @@ initPreflight({request,say,getBusy:()=>busy});
 initDocumentCopy({request,say,getCurrentDocument:()=>({...currentDocument}),getBusy:()=>busy,setBusy,assertCanReplace:()=>editorial.assertCanReplace(),applyCopy:openVersion});
 
 initAIUsage({request,say,getBusy:()=>busy});
+
+initMonthlyReport({request,say,getBusy:()=>busy});

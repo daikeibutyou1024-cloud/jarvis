@@ -546,6 +546,12 @@
         </details>
       </section>
       <section class="panel">
+        <h2>案件別の月次振り返り</h2>
+        <p class="hint">版管理された案件と、入力済みの公開記録・成果・円の収支を案件別に表示します。実売上・実利益・外部の公開状態は取得しません。全体や異なる計測元を重ねて集計しません。</p>
+        <label for="monthly-period">対象月（日本時間）</label><input id="monthly-period" type="month"><button id="monthly-refresh">月次の記録を取得（AI利用なし）</button>
+        <p id="monthly-summary" role="status">未取得</p><div id="monthly-projects"></div><button id="monthly-next" hidden>次の25件</button>
+      </section>
+      <section class="panel">
         <h2>運用開始前の確認</h2>
         <p class="hint">設定形式・保存先の必須列・AIと定期収集の停止条件を確認します。データの変更やAI・収集の実行は行いません。DBの分離、実請求、復元、本番反映の判断には別途確認が必要です。</p>
         <button id="preflight-check">設定・開始条件を確認（実行なし）</button>
