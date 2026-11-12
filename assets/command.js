@@ -914,6 +914,24 @@ function speak(text) {
   speech.lang = "ja-JP";
   speechSynthesis.speak(speech);
 }
+// Free, local-only welcome greeting. Mobile Safari may require a tap to unlock audio.
+const welcomeText = "おかえりなさい。J.A.R.V.I.S.です。今日もよろしくお願いします。";
+function playWelcome() {
+  if (!("speechSynthesis" in window)) {
+    say("このブラウザでは音声読み上げが利用できません");
+    return;
+  }
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(welcomeText);
+  utterance.lang = "ja-JP";
+  utterance.rate = 0.95;
+  speechSynthesis.speak(utterance);
+}
+$("greeting-play").addEventListener("click", playWelcome);
+// Try once on initial load; the visible replay button remains available if blocked.
+if (location.hash === "" || location.hash === "#overview") {
+  window.addEventListener("load", () => playWelcome(), { once: true });
+}
 $("stop-speech").onclick = () => window.speechSynthesis?.cancel();
 $("chat-form").onsubmit = async (e) => {
   e.preventDefault();
