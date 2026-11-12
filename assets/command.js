@@ -166,9 +166,25 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") setMenuOpen(
 const chatPanel = document.querySelector(".panel.chat");
 const chatOriginalParent = chatPanel.parentElement;
 const chatNextSibling = chatPanel.nextElementSibling;
+// Keep operational panels behind their department, never on the J.A.R.V.I.S. home.
+const operationalPanels = [...document.querySelectorAll("main > section.panel")].filter(el => el !== chatPanel);
+const panelDepartments = [
+  ["content"], // 制作ライブラリ
+  ["content", "marketing"], // 公開準備
+  ["analytics", "finance"], // 共有記録
+  ["analytics", "finance"], // 月次振り返り
+  ["research"], // 運用前診断
+  ["research"], // 定期収集
+];
+function updateOperationalPanels(currentPage) {
+  operationalPanels.forEach((panel, index) => {
+    panel.hidden = !panelDepartments[index]?.includes(currentPage);
+  });
+}
 function navigate(next) {
   setMenuOpen(false);
   page = next in departments ? next : "overview";
+  updateOperationalPanels(page);
   if (page !== "overview") department = page;
   if (page === "overview") $("overview").append(chatPanel);
   else chatOriginalParent.insertBefore(chatPanel, chatNextSibling);
