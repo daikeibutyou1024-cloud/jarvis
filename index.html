@@ -9,14 +9,16 @@
     <script type="module" src="/assets/command.js"></script>
   </head>
   <body>
-    <aside class="sidebar">
+    <button id="menu-toggle" class="menu-toggle" type="button" aria-label="メニューを開く" aria-controls="main-menu" aria-expanded="false">☰ <span>MENU</span></button>
+    <div id="menu-backdrop" class="menu-backdrop" hidden></div>
+    <aside class="sidebar" id="main-menu" aria-label="メインメニュー">
       <a class="brand" href="#overview"
         >J.A.R.V.I.S.<small>BUSINESS COMMAND</small></a
       >
       <p class="nav-caption">WORKSPACE / 開発版</p>
       <nav aria-label="部門">
         <button data-page="overview" aria-current="page">
-          ◈ <span>COMMAND<small>副業司令室</small></span></button
+          ◈ <span>HOME<small>J.A.R.V.I.S.と会話</small></span></button
         ><button data-page="research">
           01 <span>RESEARCH<small>市場・商品・競合</small></span></button
         ><button data-page="content">
@@ -70,12 +72,12 @@
             <p id="voice-status" role="status">音声入力は球体をタップ</p>
           </div>
         </div>
-        <div class="section-heading">
+        <div class="section-heading overview-extra">
           <h2>OPERATIONS / 部門一覧</h2>
           <span>AI生成は実行時にAPI料金が発生します</span>
         </div>
-        <div class="department-grid" id="department-cards"></div>
-        <div class="panel">
+        <div class="department-grid overview-extra" id="department-cards"></div>
+        <div class="panel overview-extra">
           <h2>接続と保存の状態</h2>
           <div class="connection-grid">
             <p>AI API <strong id="ai-status">未確認</strong></p>
