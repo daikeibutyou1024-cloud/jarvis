@@ -910,7 +910,14 @@ function speak(text) {
   if (!("speechSynthesis" in window))
     return say("このブラウザは読み上げに対応していません");
   speechSynthesis.cancel();
-  const speech = new SpeechSynthesisUtterance(text);
+  // Keep emoji and formatting visible in chat, but omit them from spoken output.
+  const spoken = String(text)
+    .replace(/https?:\/\/\S+/g, "リンク")
+    .replace(/[\\p{Extended_Pictographic}\\p{Emoji_Presentation}\\uFE0F\\u200D]/gu, "")
+    .replace(/[#*_~`>]/g, "")
+    .replace(/\\s+/g, " ").trim();
+  if (!spoken) return;
+  const speech = new SpeechSynthesisUtterance(spoken);
   speech.lang = "ja-JP";
   speechSynthesis.speak(speech);
 }
