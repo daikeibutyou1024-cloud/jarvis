@@ -164,8 +164,6 @@ menuToggle.addEventListener("click", () => setMenuOpen(!sidebar.classList.contai
 menuBackdrop.addEventListener("click", () => setMenuOpen(false));
 document.addEventListener("keydown", e => { if (e.key === "Escape") setMenuOpen(false); });
 const chatPanel = document.querySelector(".panel.chat");
-const chatOriginalParent = chatPanel.parentElement;
-const chatNextSibling = chatPanel.nextElementSibling;
 // Keep operational panels behind their department, never on the J.A.R.V.I.S. home.
 const operationalPanels = [...document.querySelectorAll("main > section.panel")].filter(el => el !== chatPanel);
 const panelDepartments = [
@@ -186,7 +184,8 @@ function navigate(next) {
   page = next in departments ? next : "overview";
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
-  $("overview").append(chatPanel);
+  const core = document.querySelector("#overview .core");
+  if (chatPanel.parentElement !== core) core.append(chatPanel);
   $("overview").hidden = page !== "overview";
   $("workspace").hidden = page === "overview";
   $("page-title").textContent =
