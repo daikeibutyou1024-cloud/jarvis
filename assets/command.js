@@ -1,3 +1,4 @@
+import {initCoreState} from "./core-state.js";
 import {spokenText} from "../lib/speech.js";
 import {initMonthlyReport} from "./monthly-report.js";
 import {initAIUsage} from "./ai-usage.js";
@@ -33,6 +34,7 @@ const $ = (id) => document.getElementById(id),
   say = (message) => {
     $("status").textContent = message;
   };
+const coreState=initCoreState($("orb-voice"));
 const keys = {
   drafts: "jarvis_business_drafts_v1",
   brief: "jarvis_business_brief_v2",
@@ -124,6 +126,8 @@ function authenticate() {
 async function request(url, method = "GET", body) {
   const secret = await authenticate();
   if (!secret) throw Error("認証をキャンセルしました");
+  const aiRequest=method==="POST" && ["/api/chat","/api/business/jobs"].includes(url);
+  if(aiRequest)coreState.set("thinking",true);
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),75000);
   let response,data;
@@ -131,9 +135,11 @@ async function request(url, method = "GET", body) {
     response=await fetch(url,{method,signal:controller.signal,headers:{"Content-Type":"application/json","x-jarvis-password":secret},...(body?{body:JSON.stringify(body)}:{})});
     data=await response.json();
   }catch(error){
+    if(aiRequest)coreState.error();
     throw Error(error.name==="AbortError"?"通信がタイムアウトしました。自動再試行しません。保存・実行履歴を取得して結果を確認してください":"APIの応答を読み取れません。再実行前に保存・実行履歴を確認してください");
-  }finally{clearTimeout(timer);}
+  }finally{clearTimeout(timer);if(aiRequest)coreState.set("thinking",false);}
   if (!response.ok) {
+    if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";
       $("ai-status").textContent = "認証失敗";
@@ -913,12 +919,14 @@ function speak(text) {
   if (!$("speak").checked) return;
   if (!("speechSynthesis" in window))
     return say("このブラウザは読み上げに対応していません");
+  coreState.stopSpeech();
   speechSynthesis.cancel();
   // Keep emoji and formatting visible in chat, but omit them from spoken output.
   const spoken = spokenText(text);
   if (!spoken) return;
   const speech = new SpeechSynthesisUtterance(spoken);
   speech.lang = "ja-JP";
+  coreState.trackSpeech(speech);
   speechSynthesis.speak(speech);
 }
 // Free, local-only welcome greeting. Mobile Safari may require a tap to unlock audio.
@@ -928,17 +936,19 @@ function playWelcome() {
     say("このブラウザでは音声読み上げが利用できません");
     return;
   }
+  coreState.stopSpeech();
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(welcomeText);
   utterance.lang = "ja-JP";
   utterance.rate = 0.95;
+  coreState.trackSpeech(utterance);
   speechSynthesis.speak(utterance);
 }
 // Try once on initial load; browsers may block automatic speech.
 if (location.hash === "" || location.hash === "#overview") {
   window.addEventListener("load", () => playWelcome(), { once: true });
 }
-$("stop-speech").onclick = () => window.speechSynthesis?.cancel();
+$("stop-speech").onclick = () => {coreState.stopSpeech();window.speechSynthesis?.cancel();};
 $("chat-form").onsubmit = async (e) => {
   e.preventDefault();
   if (busy) return;
@@ -1000,12 +1010,14 @@ function voice() {
     recognition.stop();
     return;
   }
+  coreState.stopSpeech();
   window.speechSynthesis?.cancel();
   recognition = new Recognition();
   recognition.lang = "ja-JP";
   recognition.interimResults = false;
   recognition.onstart = () => {
     listening = true;
+    coreState.set("listening",true);
     $("orb-voice").classList.add("listening");
     for (const id of ["orb-voice", "mic-command"])
       $(id).setAttribute("aria-pressed", "true");
@@ -1016,14 +1028,17 @@ function voice() {
     $("command").focus();
     say("音声を入力しました。確認して送信してください。");
   };
-  recognition.onerror = (e) =>
+  recognition.onerror = (e) => {
+    coreState.set("listening",false);coreState.error();
     say(
       e.error === "not-allowed"
         ? "マイクの利用が許可されていません"
         : "音声入力に失敗しました。テキスト入力も利用できます。",
     );
+  };
   recognition.onend = () => {
     listening = false;
+    coreState.set("listening",false);
     $("orb-voice").classList.remove("listening");
     for (const id of ["orb-voice", "mic-command"])
       $(id).setAttribute("aria-pressed", "false");
@@ -1032,6 +1047,7 @@ function voice() {
   try {
     recognition.start();
   } catch {
+    coreState.set("listening",false);coreState.error();
     say("音声入力を開始できませんでした");
   }
 }
