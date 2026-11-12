@@ -150,9 +150,28 @@ $("logout").onclick = () => {
   $("db-status").textContent = "未確認";
   say("このタブの認証情報を解除しました");
 };
+const menuToggle = $("menu-toggle");
+const menuBackdrop = $("menu-backdrop");
+const sidebar = $("main-menu");
+function setMenuOpen(open) {
+  sidebar.classList.toggle("is-open", open);
+  menuBackdrop.hidden = !open;
+  menuToggle.setAttribute("aria-expanded", String(open));
+  menuToggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
+  menuToggle.firstChild.textContent = open ? "× " : "☰ ";
+}
+menuToggle.addEventListener("click", () => setMenuOpen(!sidebar.classList.contains("is-open")));
+menuBackdrop.addEventListener("click", () => setMenuOpen(false));
+document.addEventListener("keydown", e => { if (e.key === "Escape") setMenuOpen(false); });
+const chatPanel = document.querySelector(".panel.chat");
+const chatOriginalParent = chatPanel.parentElement;
+const chatNextSibling = chatPanel.nextElementSibling;
 function navigate(next) {
+  setMenuOpen(false);
   page = next in departments ? next : "overview";
   if (page !== "overview") department = page;
+  if (page === "overview") $("overview").append(chatPanel);
+  else chatOriginalParent.insertBefore(chatPanel, chatNextSibling);
   $("overview").hidden = page !== "overview";
   $("workspace").hidden = page === "overview";
   $("page-title").textContent =
