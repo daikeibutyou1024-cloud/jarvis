@@ -737,3 +737,10 @@ main { margin-left: 0; padding-top: 78px; }
 #overview .compact-chat #conversation { margin-bottom: 8px; }
 #overview .compact-chat .command-row { margin-top: 0; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+/* Integrate the chat input directly under the orb status on mobile and desktop. */
+#overview .hero .core { width: 100%; max-width: 760px; }
+#overview .core .compact-chat { width: 100%; margin: 14px auto 0; padding: 0; background: transparent; border: 0; box-shadow: none; }
+#overview .core .compact-chat .command-row { width: 100%; }
+#overview .core .compact-chat > .section-heading { margin: 0 0 8px; }
+@media (max-width: 700px) { #overview .core .compact-chat .command-row { flex-wrap: wrap; } #overview .core .compact-chat #command { min-width: 0; flex: 1 1 140px; } }
