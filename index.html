@@ -46,18 +46,27 @@
         <span class="badge">DEVELOPMENT / 本番未反映</span>
       </header>
       <section id="overview" class="page">
-        <div class="hero">
-          <div>
-            <p class="eyebrow">BUILD IDEAS. CREATE VALUE.</p>
-            <h2>アイデアを、<br /><em>価値あるコンテンツへ。</em></h2>
-            <p>
-              調査から制作、集客、振り返りまで。<br />5つの部門をつなぐ、あなたのAI副業司令室。
-            </p>
-            <button class="primary" data-page="research">
-              リサーチから始める ↗
-            </button>
-          </div>
-          <div class="core">
+        <div class="command-center">
+          <aside class="hud-system hud-panel" aria-label="SYSTEM STATUS">
+            <h2>SYSTEM STATUS <span class="hud-dot"></span></h2>
+            <p class="hud-kicker">J.A.R.V.I.S. / LOCAL INTERFACE</p>
+            <dl class="system-readings">
+              <div><dt>動作状態</dt><dd id="home-state">待機中</dd></div>
+              <div><dt>音声入力</dt><dd id="home-input-state">未確認</dd></div>
+              <div><dt>読み上げ</dt><dd id="home-speech-state">未確認</dd></div>
+            </dl>
+            <div class="hud-clock"><time id="home-time">--:--:--</time><p id="home-date"></p><small id="home-timezone"></small></div>
+            <h3>CONNECTIONS</h3>
+            <dl class="system-readings">
+              <div><dt>AI API</dt><dd id="ai-status">未確認</dd></div>
+              <div><dt>D1保存</dt><dd id="db-status">未確認</dd></div>
+              <div><dt>端末保存</dt><dd id="storage-status">確認中</dd></div>
+            </dl>
+            <p class="hud-note">接続状態は操作結果に基づきます。自動診断・AI実行は行いません。</p>
+          </aside>
+          <div class="hud-core-stage">
+            <div class="hud-core-heading">NEURAL INTERFACE <span>01 / CORE</span></div>
+<div class="core-wave" aria-hidden="true"><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i></div>          <div class="core">
             <button
               id="orb-voice"
               class="orb-wrap"
@@ -66,29 +75,24 @@
             >
               <span class="core-particles" aria-hidden="true"></span><span class="orb-halo" aria-hidden="true"></span><span class="orb-ring"></span
               ><span class="orb-ring-two"></span
-              ><span class="orb-ring-three"></span><span class="orb"></span>
+              ><span class="orb-ring-three"></span><span class="orb-ticks" aria-hidden="true"></span><span class="orb-segments" aria-hidden="true"></span><span class="orb"></span>
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
             <p id="voice-status" role="status">音声入力は球体をタップ</p>
           </div>
+
+          </div>
+          <section id="home-communication" class="hud-panel" aria-label="COMMUNICATION">
+            <h2>COMMUNICATION <span class="hud-accent">// LOG</span></h2>
+            <p id="communication-state" role="status">待機中</p>
+          </section>
+          <div id="home-command" class="hud-panel"><span class="command-caption">COMMAND INPUT <span>手動送信 / 自動投稿なし</span></span></div>
         </div>
         <div class="section-heading overview-extra">
           <h2>OPERATIONS / 部門一覧</h2>
           <span>AI生成は実行時にAPI料金が発生します</span>
         </div>
         <div class="department-grid overview-extra" id="department-cards"></div>
-        <div class="panel overview-extra">
-          <h2>接続と保存の状態</h2>
-          <div class="connection-grid">
-            <p>AI API <strong id="ai-status">未確認</strong></p>
-            <p>D1クラウド保存 <strong id="db-status">未確認</strong></p>
-            <p>外部調査 <strong>RSS・GitHubは操作時に確認</strong></p>
-            <p>端末保存 <strong id="storage-status">確認中</strong></p>
-          </div>
-          <p class="hint">
-            API・D1の状態は操作結果に基づき表示します。画面を開くだけで課金APIを呼び出しません。
-          </p>
-        </div>
       </section>
       <section id="workspace" class="page" hidden>
         <div class="section-heading">

@@ -1,3 +1,4 @@
+import {initHomeCenter} from "./home-center.js";
 import {initCoreState} from "./core-state.js";
 import {spokenText} from "../lib/speech.js";
 import {initMonthlyReport} from "./monthly-report.js";
@@ -34,6 +35,7 @@ const $ = (id) => document.getElementById(id),
   say = (message) => {
     $("status").textContent = message;
   };
+initHomeCenter();
 const coreState=initCoreState($("orb-voice"));
 const keys = {
   drafts: "jarvis_business_drafts_v1",
@@ -194,12 +196,11 @@ function navigate(next) {
   page = next in departments ? next : "overview";
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
-  const core = document.querySelector("#overview .core");
-  if (chatPanel.parentElement !== core) core.append(chatPanel);
+  // HOME owns the existing chat and input nodes; department switching never clones them.
   $("overview").hidden = page !== "overview";
   $("workspace").hidden = page === "overview";
   $("page-title").textContent =
-    page === "overview" ? "副業司令室" : departments[page].title;
+    page === "overview" ? "AI COMMAND CENTER" : departments[page].title;
   document.querySelectorAll("nav button").forEach((b) => {
     if (b.dataset.page === page) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");

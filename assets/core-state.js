@@ -5,6 +5,7 @@ export function initCoreState(element, doc = document) {
   const render=()=>{
     element.dataset.state=failed?'error':flags.listening?'listening':flags.thinking?'thinking':flags.speaking?'speaking':'idle';
     element.classList.toggle('core-paused',doc.hidden);
+    if(element.dispatchEvent)element.dispatchEvent(new CustomEvent('core-state',{detail:{state:element.dataset.state,...flags}}));
   };
   const set=(key,value)=>{if(key in flags){flags[key]=Boolean(value);render();}};
   const error=()=>{failed=true;clearTimeout(errorTimer);render();errorTimer=setTimeout(()=>{failed=false;render();},1400);};

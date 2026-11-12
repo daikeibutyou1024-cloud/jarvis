@@ -319,3 +319,25 @@
 .orb-wrap[data-state="error"] .orb-ring-two,
 .orb-wrap[data-state="error"] .orb-ring-three { border-color: currentColor; }
 .orb-wrap[data-state="error"] .orb-ring:after { background: currentColor; }
+/* Precision circular HUD core, replacing tilted orbital planes on HOME. */
+#overview .orb-wrap { width:min(370px,100%); }
+#overview .orb-ring { inset:7%;border:1px solid #45d5ee88;animation-name:hud-ring-forward; }
+#overview .orb-ring:before { inset:14px;border:1px solid #45d5ee55; }
+#overview .orb-ring-two { inset:17%;animation-name:hud-ring-reverse;border-style:dashed; }
+#overview .orb-ring-three { inset:26%;animation-name:hud-ring-forward;border:1px solid #5be6f080; }
+.orb-ticks,.orb-segments { position:absolute;border-radius:50%;pointer-events:none; }
+.orb-ticks { inset:1%;background:repeating-conic-gradient(from 0deg,currentColor 0deg 1deg,transparent 1deg 6deg);-webkit-mask:radial-gradient(circle,transparent 66%,#000 67% 70%,transparent 71%);mask:radial-gradient(circle,transparent 66%,#000 67% 70%,transparent 71%);opacity:.65;animation:hud-ring-reverse var(--orbit-three) linear infinite; }
+.orb-segments { inset:9%;background:repeating-conic-gradient(currentColor 0deg 7deg,transparent 7deg 15deg);-webkit-mask:radial-gradient(circle,transparent 62%,#000 63% 68%,transparent 69%);mask:radial-gradient(circle,transparent 62%,#000 63% 68%,transparent 69%);opacity:.7;animation:hud-ring-forward var(--orbit-two) linear infinite; }
+#overview .orb { width:35%;height:35%;background:radial-gradient(circle,#e5ffff 0 10%,#8cfaff 12%,#1bc0e2 28%,#126481 45%,#072330 68%,#030c14 85%); }
+#overview .orb:before { inset:-12px;border:1px solid #59e5ff77;clip-path:polygon(25% 0,80% 10%,100% 70%,60% 100%,0 70%,0 30%);border-radius:0;background:repeating-conic-gradient(#6bffff30 0deg 1deg,transparent 1deg 45deg); }
+#overview .orb:after { width:14%;height:14%;left:43%;top:43%;filter:none;box-shadow:0 0 22px #d5ffff; }
+#overview .orb-wrap[data-state="listening"] .orb { background:radial-gradient(circle,#fff 0 8%,#ff8195 16%,#ff294d 36%,#6c112c 62%,#12050c 85%); }
+#overview .orb-wrap[data-state="error"] .orb { background:radial-gradient(circle,#fff1da,#ff9a36 30%,#693209 65%,#160b05 85%); }
+@keyframes hud-ring-forward { to { transform:rotate(360deg); } }
+@keyframes hud-ring-reverse { to { transform:rotate(-360deg); } }
+@media(max-width:700px) { #overview .orb-wrap { width:min(300px,70vw); } }
+@media(prefers-reduced-motion:reduce) { #overview .orb-ring,#overview .orb-ring-two,#overview .orb-ring-three { transform:none; } }
+#overview .orb-ring-three:after { content:"";position:absolute;inset:-22px;border:2px solid transparent;border-right-color:#dba85a;border-radius:50%;transform:rotate(-35deg);opacity:.7; }
+@keyframes hud-ring-forward { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+@keyframes hud-ring-reverse { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
+#overview .orb { box-shadow:0 0 22px #3cdbff88,0 0 65px #087dff55,inset 0 0 18px #1acbe833; }
