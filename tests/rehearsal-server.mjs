@@ -9,10 +9,10 @@ import * as drafts from '../functions/api/business/drafts.js';
 import * as paid from '../functions/api/business/paid-drafts.js';
 import * as usage from '../functions/api/business/usage.js';
 import * as preflight from '../functions/api/business/preflight.js';
-export async function startRehearsal(){
+export async function startRehearsal({apiHandlers={}}={}){
 const root=resolve(fileURLToPath(new URL('..',import.meta.url))),db=testDB();
 const env={JARVIS_DB:db,JARVIS_ACCESS_PASSWORD:'rehearsal-only',AI_MONTHLY_BUDGET_USD:'0',COLLECTION_AUTOMATION_ENABLED:'false',CF_PAGES_BRANCH:'local-rehearsal'};
-const routes=new Map([['/api/business/editorial',editorial],['/api/business/drafts',drafts],['/api/business/paid-drafts',paid],['/api/business/usage',usage],['/api/business/preflight',preflight]]);
+const routes=new Map([['/api/business/editorial',editorial],['/api/business/drafts',drafts],['/api/business/paid-drafts',paid],['/api/business/usage',usage],['/api/business/preflight',preflight],...Object.entries(apiHandlers)]);
 let outboundAttempts=0;const requests=[];
 const originalFetch=globalThis.fetch;globalThis.fetch=async()=>{outboundAttempts++;throw Error('External requests forbidden in local rehearsal');};
 const server=createServer(async(req,res)=>{

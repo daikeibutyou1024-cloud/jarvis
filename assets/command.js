@@ -1,3 +1,4 @@
+import {initPrototypeFlow} from "./prototype-flow.js";
 import {initHomeCenter} from "./home-center.js";
 import {initCoreState} from "./core-state.js";
 import {spokenText} from "../lib/speech.js";
@@ -31,9 +32,11 @@ import {
   metricsSummary,
   financeTotals,
 } from "./business.js";
+let prototypeFlow=null;
 const $ = (id) => document.getElementById(id),
   say = (message) => {
     $("status").textContent = message;
+    prototypeFlow?.refresh();
   };
 initHomeCenter();
 const coreState=initCoreState($("orb-voice"));
@@ -138,6 +141,7 @@ async function request(url, method = "GET", body) {
     data=await response.json();
   }catch(error){
     if(aiRequest)coreState.error();
+    prototypeFlow?.failure("通信結果を確認できません。診断IDが未取得の場合は実行履歴を確認してください。");
     throw Error(error.name==="AbortError"?"通信がタイムアウトしました。自動再試行しません。保存・実行履歴を取得して結果を確認してください":"APIの応答を読み取れません。再実行前に保存・実行履歴を確認してください");
   }finally{clearTimeout(timer);if(aiRequest)coreState.set("thinking",false);}
   if (!response.ok) {
@@ -149,8 +153,11 @@ async function request(url, method = "GET", body) {
     }
     const error=Error((data.error || "API通信に失敗しました") + (data.diagnostic ? `（診断ID: ${data.diagnostic.id} / 段階: ${data.diagnostic.stage}）` : ""));
     error.data=data;
+    prototypeFlow?.failure(error.message);
     throw error;
   }
+  if(method==='GET' && url.startsWith('/api/business/editorial?') && data.document){prototypeFlow?.loaded(data.document);prototypeFlow?.success('保存版を再取得しました。案件・版・本文・出典が現在の表示と一致した場合に再読込完了と表示します。');}
+  if(method==='POST' && url==='/api/business/jobs')prototypeFlow?.success('生成結果を保存しました。未完成状態と出典を確認し、保存版を再読込してください。');
   return data;
 }
 $("logout").onclick = () => {
@@ -197,6 +204,7 @@ function navigate(next) {
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
   // HOME owns the existing chat and input nodes; department switching never clones them.
+  $("prototype-flow").hidden = !["research","content"].includes(page);
   $("overview").hidden = page !== "overview";
   $("workspace").hidden = page === "overview";
   $("page-title").textContent =
@@ -547,8 +555,10 @@ async function generate(cloud, continuation = false) {
   } catch (e) {
     if(e.data?.recovery){
       const r=e.data.recovery;
-      setOutput(r.output,dept,false,r.generation,evidence,targetDocument,currentWorkflow);
+      $("generation-recovery").hidden=false;
+      $("generation-recovery-text").value+=($("generation-recovery-text").value?"\n\n--- 追加の救出結果 ---\n":"")+(r.output||'');
     }
+    prototypeFlow?.failure(e.message);
     say(e.message);
     if (cloud) $("db-status").textContent = "操作失敗 / 要確認";
     else $("ai-status").textContent = "操作失敗 / 要確認";
@@ -1082,6 +1092,7 @@ research = initResearch({
   write,
   read,
   persistBrief: () => write(keys.brief, brief()),
+  assertCanReplace:()=>editorial?.assertCanReplace(),
 });
 
 editorial=initEditorial({
@@ -1114,3 +1125,12 @@ initDocumentCopy({request,say,getCurrentDocument:()=>({...currentDocument}),getB
 initAIUsage({request,say,getBusy:()=>busy});
 
 initMonthlyReport({request,say,getBusy:()=>busy});
+
+prototypeFlow=initPrototypeFlow({navigate,getState:()=>{
+ const r=research.progress(),text=$("output").value;
+ const linked=r.handoff && brief().topic===r.title && r.sourceIds.every(id=>currentEvidence.includes(id));
+ return {...r,projectId:currentDocument.projectId,revision:currentDocument.revision,evidence:currentEvidence,text:text&&linked?text:'',saved:!!text&&linked&&currentDocument.revision>0&&editorial.isSaved()};
+}});
+for(const id of ['topic','audience','notes','format','output','editorial-idea','editorial-outline','editorial-no-facts'])$(id).addEventListener('input',()=>prototypeFlow.refresh());
+new MutationObserver(()=>prototypeFlow.refresh()).observe($("research-records"),{childList:true,subtree:true});
+prototypeFlow.refresh();

@@ -7,6 +7,7 @@
     "test:release-http": "node tests/editorial-release-rehearsal.mjs",
     "test:release-browser": "node tests/editorial-release-browser.mjs",
     "check:preview-config": "node scripts/check-preview-config.mjs",
-    "check:ai-budget-plan": "node scripts/check-ai-budget-plan.mjs"
+    "check:ai-budget-plan": "node scripts/check-ai-budget-plan.mjs",
+    "test:prototype-browser": "node tests/prototype-browser.mjs"
   }
 }

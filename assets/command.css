@@ -846,3 +846,7 @@ main > header h1 { overflow-wrap:anywhere; }
  .hud-system h3 + dl dd { text-align:left;margin-top:3px; }
  .hud-system .hud-note { font-size:9px;line-height:1.5;margin-top:4px; }
 }
+#prototype-steps { display:flex;flex-wrap:wrap;gap:8px 18px;padding-left:20px;font-size:12px; }
+#prototype-steps li[data-done="true"] { color:var(--cyan); }
+#prototype-next,#prototype-result { overflow-wrap:anywhere;font-size:12px;line-height:1.8; }
+#generation-recovery { border:1px solid #c48e48;padding:12px;margin-top:12px; }

@@ -1,3 +1,4 @@
+import {createDiagnostic} from '../../../lib/ai-diagnostics.js';
 import {
   denied,
   missing,
@@ -31,12 +32,15 @@ export async function onRequestPost({ request, env }) {
       400,
     );
   }
+  const diagnostic=createDiagnostic();
   try {
-    const result = await runAI(env, "ideas", prompt, 3200);
+    const result = await runAI(env, "ideas", prompt, 3200, null, diagnostic);
+    diagnostic.stage('idea_validation');
     const ideas = validateIdeas(
       result.text,
       evidence,
     );
+    diagnostic.stage('idea_save');
     await env.JARVIS_DB.prepare(
       "CREATE TABLE IF NOT EXISTS research_plans (id TEXT PRIMARY KEY, topic TEXT NOT NULL, payload TEXT NOT NULL, created_at INTEGER NOT NULL)",
     ).run();
@@ -49,14 +53,13 @@ export async function onRequestPost({ request, env }) {
       .run();
     return responseJSON({
       ideas,
+      diagnostic:diagnostic.finish(),
       id,
       label: "企画・全評価はAI仮説",
       createdAt: new Date(createdAt * 1000).toISOString(),
     });
   } catch (error) {
     if (aiFailure(error)) return responseJSON(aiFailure(error),error.status);
-    return missing(
-      "企画の生成・検証・保存に失敗しました。未取得情報を補完せず、利用回数は消費済みの場合があります",
-    );
+    return responseJSON({status:'unavailable',label:'未取得',ideas:[],code:'IDEA_FAILED',diagnostic:diagnostic.finish('IDEA_FAILED'),error:'企画の生成・検証・保存に失敗しました。自動再試行は行いません。利用回数は消費済みの場合があります'},503);
   }
 }

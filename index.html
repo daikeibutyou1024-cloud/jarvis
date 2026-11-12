@@ -95,6 +95,13 @@
         <div class="department-grid overview-extra" id="department-cards"></div>
       </section>
       <section id="workspace" class="page" hidden>
+        <section id="prototype-flow" class="panel" hidden aria-label="最小試作版Aの制作手順">
+          <h2>記事制作ガイド / 最小試作版A</h2>
+          <p class="hint">資料確認と企画選定は利用者が行います。AIは明示操作ごとに1回だけ実行。公開は手動です。</p>
+          <ol id="prototype-steps"></ol><p id="prototype-next" role="status"></p>
+          <button id="prototype-go" type="button">次の操作場所へ（実行しません）</button>
+          <p id="prototype-result" role="status">未実行。既存の原稿・保存データは保持します。</p>
+        </section>
         <div class="section-heading">
           <div>
             <p class="eyebrow" id="dept-label"></p>
@@ -367,7 +374,7 @@
               rows="16"
               placeholder="生成結果や編集した原稿を表示します"
               aria-label="生成結果・原稿"
-            ></textarea>
+            ></textarea><details id="generation-recovery" hidden><summary>保存できなかった生成結果（元原稿とは別に保持）</summary><p>元の原稿は置き換えていません。次の生成前にこの本文をコピーして退避してください。保存・完成・確認済みではありません。</p><textarea id="generation-recovery-text" readonly rows="8" aria-label="救出用の生成結果"></textarea></details>
             <p id="generation-status" class="hint" role="status" hidden></p>
             <div id="content-continue-tools" class="actions" hidden>
               <button id="continue-local">続きを作成（端末）</button

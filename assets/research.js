@@ -19,6 +19,7 @@ export function initResearch({
   write,
   read,
   persistBrief = () => {},
+  assertCanReplace = () => {},
 }) {
   const PLANS = "jarvis_research_plans_v3",
     PLAN_HANDOFF = "jarvis_research_plan_handoff_v3";
@@ -389,6 +390,7 @@ export function initResearch({
         researchPacket(chosen) + (plan ? "\n" + planPacket(plan) : "");
       if (packet.length > 3500)
         throw Error("資料と企画が3500文字を超えます。資料を短くしてください");
+      assertCanReplace();
       if (!write(HANDOFF, chosen) || !write(PLAN_HANDOFF, plan)) return;
       handoff = structuredClone(chosen);
       selectedPlan = plan;
@@ -500,6 +502,7 @@ export function initResearch({
   renderHandoff();
   renderPlans();
   return {
+    progress(){let fresh=true;try{assertFreshHandoff();}catch{fresh=false;}return {records:records.filter(r=>r.status==='acquired').length,reviewed:records.filter(r=>r.kind==='fact'&&r.reviewedAt).length,plan:!!selectedPlan||plans.length>0,handoff:!!selectedPlan&&handoff.length>0&&fresh,sourceIds:handoff.map(r=>r.id),title:selectedPlan?.title||''};},
     importInbox(items){
       try{
         if(!Array.isArray(items)||!items.length||items.length>10)throw Error("収集資料は1〜10件です");
