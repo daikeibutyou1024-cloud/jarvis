@@ -186,8 +186,7 @@ function navigate(next) {
   page = next in departments ? next : "overview";
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
-  if (page === "overview") $("overview").append(chatPanel);
-  else chatOriginalParent.insertBefore(chatPanel, chatNextSibling);
+  $("overview").append(chatPanel);
   $("overview").hidden = page !== "overview";
   $("workspace").hidden = page === "overview";
   $("page-title").textContent =
