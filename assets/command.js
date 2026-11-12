@@ -1,3 +1,4 @@
+import {spokenText} from "../lib/speech.js";
 import {initMonthlyReport} from "./monthly-report.js";
 import {initAIUsage} from "./ai-usage.js";
 import {initDocumentCopy} from "./document-copy.js";
@@ -138,7 +139,7 @@ async function request(url, method = "GET", body) {
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
     }
-    const error=Error(data.error || "API通信に失敗しました");
+    const error=Error((data.error || "API通信に失敗しました") + (data.diagnostic ? `（診断ID: ${data.diagnostic.id} / 段階: ${data.diagnostic.stage}）` : ""));
     error.data=data;
     throw error;
   }
@@ -154,7 +155,10 @@ const menuToggle = $("menu-toggle");
 const menuBackdrop = $("menu-backdrop");
 const sidebar = $("main-menu");
 function setMenuOpen(open) {
+  const restore = !open && sidebar.contains(document.activeElement);
+  sidebar.inert = !open;
   sidebar.classList.toggle("is-open", open);
+  if (restore) menuToggle.focus();
   menuBackdrop.hidden = !open;
   menuToggle.setAttribute("aria-expanded", String(open));
   menuToggle.setAttribute("aria-label", open ? "メニューを閉じる" : "メニューを開く");
@@ -372,7 +376,7 @@ function reviewLabel() {
     $("review-state").textContent =
       (approved ? "確認済み / " : generationLabel(g) + " / ") + "CONTENT";
     $("generation-status").textContent =
-      `${generationLabel(g)} / 終了理由：${g.stopReason || "不明"} / 今回の入力トークン：${g.usage?.input_tokens ?? "未取得"} / 出力トークン：${g.usage?.output_tokens ?? "未取得"}。生成終了は内容・構成の完全性を保証しません。`;
+      `${generationLabel(g)}${g.diagnostic?.id ? ` / 診断ID: ${g.diagnostic.id}` : ""} / 終了理由：${g.stopReason || "不明"} / 今回の入力トークン：${g.usage?.input_tokens ?? "未取得"} / 出力トークン：${g.usage?.output_tokens ?? "未取得"}。生成終了は内容・構成の完全性を保証しません。`;
     return;
   }
   $("generation-status").textContent = "";
@@ -911,11 +915,7 @@ function speak(text) {
     return say("このブラウザは読み上げに対応していません");
   speechSynthesis.cancel();
   // Keep emoji and formatting visible in chat, but omit them from spoken output.
-  const spoken = String(text)
-    .replace(/https?:\/\/\S+/g, "リンク")
-    .replace(/[\\p{Extended_Pictographic}\\p{Emoji_Presentation}\\uFE0F\\u200D]/gu, "")
-    .replace(/[#*_~`>]/g, "")
-    .replace(/\\s+/g, " ").trim();
+  const spoken = spokenText(text);
   if (!spoken) return;
   const speech = new SpeechSynthesisUtterance(spoken);
   speech.lang = "ja-JP";
@@ -934,7 +934,7 @@ function playWelcome() {
   utterance.rate = 0.95;
   speechSynthesis.speak(utterance);
 }
-// Try once on initial load; the visible replay button remains available if blocked.
+// Try once on initial load; browsers may block automatic speech.
 if (location.hash === "" || location.hash === "#overview") {
   window.addEventListener("load", () => playWelcome(), { once: true });
 }

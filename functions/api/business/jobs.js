@@ -1,3 +1,4 @@
+import {createDiagnostic} from '../../../lib/ai-diagnostics.js';
 import {articleBody} from "../../../lib/paid-content.js";
 import {storedGenerationOptions} from "../../../lib/editorial.js";
 import {
@@ -85,6 +86,7 @@ export async function onRequestPost({ request, env }) {
   if (provider === "openai" && !env.OPENAI_API_KEY)
     return json({ error: "OpenAI API未設定" }, 503);
   let id = null, recovery = null;
+  const diagnostic=createDiagnostic();
   try {
     let body;
     try {
@@ -171,7 +173,8 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "本日の生成上限（5件）に達しました" }, 429);
     }
     await metadataTable(env.JARVIS_DB);
-    const result = await runAI(env, "job", finalPrompt, 2500, id);
+    const result = await runAI(env, "job", finalPrompt, 2500, id, diagnostic);
+    diagnostic.stage('article_validation');
     const { body: answer, generation } = composeResult(result, options);
     const evidence = body.context || "";
     const output =
@@ -183,14 +186,17 @@ export async function onRequestPost({ request, env }) {
     if(articleBody(output).length>60000||output.length>70000){const error=Error("生成後の本文が保存上限60000文字を超えました。元原稿は保持しています");error.code="OUTPUT_TOO_LONG";throw error;}
     recovery={output,generation};
     generation.document={projectId:caseId,revision:expected+1};
+    diagnostic.stage('article_save');
     await saveRevision(env.JARVIS_DB,caseId,expected,{
       department,topic,output,evidence,format:body.format||"",audience:body.audience||"",notes:body.notes||"",...(previousDoc?.workflow?{workflow:previousDoc.workflow}:{}),generation,approved:false,
     },writeId=>[
       env.JARVIS_DB.prepare("UPDATE business_jobs SET status='draft',output=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='running' AND EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(output,id,writeId),
       env.JARVIS_DB.prepare("INSERT INTO business_job_generations(job_id,generation_json) SELECT ?,? WHERE EXISTS(SELECT 1 FROM document_revisions WHERE write_id=?)").bind(id,JSON.stringify(generation),writeId),
     ],{sql:"EXISTS(SELECT 1 FROM business_jobs WHERE id=? AND status='running')",args:[id]});
+    generation.diagnostic=diagnostic.finish();
     return json({ id, status: "draft", output, body: answer, generation,workflow:previousDoc?.workflow||null }, 201);
   } catch (error) {
+    if(!error.diagnostic) error.diagnostic=diagnostic.finish('ARTICLE_FAILED');
     if (id) {
       try {
         await env.JARVIS_DB.prepare(
@@ -206,8 +212,8 @@ export async function onRequestPost({ request, env }) {
       } catch {}
     }
     if (aiFailure(error)) return json(aiFailure(error),error.status);
-    if(error.code==="OUTPUT_TOO_LONG")return json({error:error.message,code:error.code,recovery},409);
-    if (error.code === "SAVE_CONFLICT") return json({error:error.message,code:error.code,currentRevision:error.currentRevision,recovery},409);
+    if(error.code==="OUTPUT_TOO_LONG")return json({error:error.message,code:error.code,diagnostic:error.diagnostic,recovery},409);
+    if (error.code === "SAVE_CONFLICT") return json({error:error.message,code:error.code,diagnostic:error.diagnostic,currentRevision:error.currentRevision,recovery},409);
     if (error.code === "INVALID_CONTINUATION") {
       if (id) {
         try {
@@ -223,6 +229,7 @@ export async function onRequestPost({ request, env }) {
           error: error.message,
           code: error.code,
           generation: error.generation,
+          diagnostic: error.diagnostic,
         },
         409,
       );
@@ -230,6 +237,7 @@ export async function onRequestPost({ request, env }) {
     return json(
       {
         error: "処理に失敗しました。D1の設定やAI APIの残高を確認してください。",
+        diagnostic: error.diagnostic,
       },
       503,
     );
