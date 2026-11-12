@@ -927,7 +927,6 @@ function playWelcome() {
   utterance.rate = 0.95;
   speechSynthesis.speak(utterance);
 }
-$("greeting-play").addEventListener("click", playWelcome);
 // Try once on initial load; the visible replay button remains available if blocked.
 if (location.hash === "" || location.hash === "#overview") {
   window.addEventListener("load", () => playWelcome(), { once: true });
