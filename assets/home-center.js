@@ -3,6 +3,7 @@ export function initHomeCenter() {
   const $=id=>document.getElementById(id), core=$('orb-voice');
   const chat=document.querySelector('.panel.chat');
   $('home-communication').append(chat);
+  $('home-command').append($('voice-conversation-controls'));
   $('home-command').append($('chat-form'));
   $('home-command').append($('speak').closest('label'));
   const labels={idle:'待機中',listening:'音声入力中',thinking:'回答生成中',speaking:'読み上げ中',error:'エラー / 内容を確認'};

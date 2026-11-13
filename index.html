@@ -483,6 +483,11 @@
         <div id="conversation" aria-live="polite">
           <p class="empty">次に進めたいことを教えてください。</p>
         </div>
+        <div id="voice-conversation-controls" class="actions">
+          <button id="voice-start" type="button">音声会話を開始</button><button id="voice-stop" type="button" disabled>音声会話を停止</button>
+          <p id="voice-conversation-status" role="status">開始操作後、確定した音声を自動送信します。AI利用料金と既存の回数制限が適用されます。</p>
+          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。球体・◎は従来の文字起こし。音声会話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
+        </div>
         <form id="chat-form" class="command-row">
           <button
             type="button"

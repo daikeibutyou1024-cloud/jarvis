@@ -850,3 +850,7 @@ main > header h1 { overflow-wrap:anywhere; }
 #prototype-steps li[data-done="true"] { color:var(--cyan); }
 #prototype-next,#prototype-result { overflow-wrap:anywhere;font-size:12px;line-height:1.8; }
 #generation-recovery { border:1px solid #c48e48;padding:12px;margin-top:12px; }
+#voice-conversation-controls { flex-basis:100%;width:100%; }
+#voice-conversation-controls p { width:100%;margin:2px 0;font-size:11px;line-height:1.6;overflow-wrap:anywhere; }
+#voice-start { border-color:#3da4bd;color:#8deeff; }
+#voice-stop { border-color:#9f604b; }

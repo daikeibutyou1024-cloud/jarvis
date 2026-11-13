@@ -1,3 +1,4 @@
+import {createVoiceConversation} from "./voice-conversation.js";
 import {initPrototypeFlow} from "./prototype-flow.js";
 import {initHomeCenter} from "./home-center.js";
 import {initCoreState} from "./core-state.js";
@@ -32,7 +33,7 @@ import {
   metricsSummary,
   financeTotals,
 } from "./business.js";
-let prototypeFlow=null;
+let prototypeFlow=null, voiceConversation=null, voiceSpeechCancel=null;
 const $ = (id) => document.getElementById(id),
   say = (message) => {
     $("status").textContent = message;
@@ -148,6 +149,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";
+      voiceConversation?.stop("認証に失敗しました。認証を確認して音声会話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
     }
@@ -161,6 +163,7 @@ async function request(url, method = "GET", body) {
   return data;
 }
 $("logout").onclick = () => {
+  voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
   $("db-status").textContent = "未確認";
@@ -201,6 +204,7 @@ function updateOperationalPanels(currentPage) {
 function navigate(next) {
   setMenuOpen(false);
   page = next in departments ? next : "overview";
+  if(page!=="overview" && voiceConversation?.active)voiceConversation.stop("部門を切り替えたため音声会話を停止しました");
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
   // HOME owns the existing chat and input nodes; department switching never clones them.
@@ -959,12 +963,11 @@ function playWelcome() {
 if (location.hash === "" || location.hash === "#overview") {
   window.addEventListener("load", () => playWelcome(), { once: true });
 }
-$("stop-speech").onclick = () => {coreState.stopSpeech();window.speechSynthesis?.cancel();};
-$("chat-form").onsubmit = async (e) => {
-  e.preventDefault();
-  if (busy) return;
-  const command = $("command").value.trim();
-  if (!command) return;
+$("stop-speech").onclick = () => {if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");coreState.stopSpeech();window.speechSynthesis?.cancel();};
+async function sendChat(command,voiceMode=false) {
+  if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声会話を再開してください");return null;}
+  command=command.trim();
+  if (!command) return null;
   setBusy(true);
   message("user", command);
   $("command").value = "";
@@ -990,7 +993,7 @@ $("chat-form").onsubmit = async (e) => {
       (remaining ? previous.slice(-remaining) : "") +
       question;
     const data = await request("/api/chat", "POST", { prompt });
-    if (!data.answer?.trim()) throw Error("空の応答でした");
+    if (typeof data.answer!=="string" || !data.answer.trim()) throw Error("回答が空または不正な形式でした。実行履歴を確認してください");
     message("assistant", data.answer);
     history.push(
       { role: "user", text: command },
@@ -998,19 +1001,29 @@ $("chat-form").onsubmit = async (e) => {
     );
     if (history.length > 12) history.splice(0, history.length - 12);
     $("ai-status").textContent = "応答成功";
-    speak(data.answer);
+    if(!voiceMode)speak(data.answer);
     say("回答しました");
+    return data.answer;
   } catch (error) {
     message("assistant", "通信エラー：" + error.message);
     $("ai-status").textContent = "操作失敗 / 要確認";
     say(error.message);
+    if(voiceMode)throw error;
+    return null;
   } finally {
     setBusy(false);
   }
-};
+}
+$("chat-form").onsubmit = e=>{e.preventDefault();if(busy)return;stopDictation();voiceConversation?.stop("手動入力へ切り替えました");void sendChat($("command").value);};
 let recognition = null,
   listening = false;
+function stopDictation(){
+ if(recognition){for(const key of ['onstart','onresult','onerror','onend'])recognition[key]=null;try{recognition.abort?.();}catch{}}
+ listening=false;coreState.set("listening",false);$("orb-voice").classList.remove("listening");for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed","false");
+}
 function voice() {
+  if(voiceConversation?.active){voiceConversation.stop();return;}
+  if(busy)return say("AIの処理中です。終了後に音声入力してください");
   const Recognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!Recognition)
@@ -1028,6 +1041,7 @@ function voice() {
   recognition.interimResults = false;
   recognition.onstart = () => {
     listening = true;
+    coreState.clearError();
     coreState.set("listening",true);
     $("orb-voice").classList.add("listening");
     for (const id of ["orb-voice", "mic-command"])
@@ -1062,6 +1076,44 @@ function voice() {
     say("音声入力を開始できませんでした");
   }
 }
+// Continuous conversation is explicitly opt-in. One-shot dictation remains available.
+function speakVoiceReply(text){
+ return new Promise((resolve,reject)=>{
+  if(!window.speechSynthesis){reject(Error("読み上げ非対応です。テキストで回答を確認してください"));return;}
+  const spoken=spokenText(text);if(!spoken){reject(Error("読み上げ可能な回答がありません"));return;}
+  coreState.stopSpeech();speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(spoken);utterance.lang="ja-JP";coreState.trackSpeech(utterance);
+  let settled=false,startTimer,endTimer;
+  const finish=error=>{if(settled)return;settled=true;clearTimeout(startTimer);clearTimeout(endTimer);voiceSpeechCancel=null;coreState.stopSpeech();error?reject(error):resolve();};
+  voiceSpeechCancel=()=>finish(Error("読み上げを停止しました"));
+  const start=utterance.onstart,end=utterance.onend,error=utterance.onerror;
+  utterance.onstart=e=>{start?.(e);clearTimeout(startTimer);};
+  utterance.onend=e=>{end?.(e);finish();};
+  utterance.onerror=e=>{error?.(e);finish(Error("Safariが読み上げを開始・継続できませんでした。回答は画面で確認し、音声会話を再開してください"));};
+  startTimer=setTimeout(()=>finish(Error("読み上げを開始できませんでした。画面の回答を確認してタップで再開してください")),5000);
+  endTimer=setTimeout(()=>finish(Error("読み上げが終了しませんでした。再開操作をしてください")),180000);
+  try{speechSynthesis.speak(utterance);}catch{finish(Error("読み上げを開始できませんでした。タップで再開してください"));}
+ });
+}
+let voiceTranscript="";
+voiceConversation=createVoiceConversation({
+ Recognition:window.SpeechRecognition||window.webkitSpeechRecognition,
+ authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,
+ cancelSpeech:()=>{voiceSpeechCancel?.();coreState.stopSpeech();window.speechSynthesis?.cancel();},
+ isBusy:()=>busy,isHidden:()=>document.hidden||page!=="overview",
+ onTranscript:text=>{voiceTranscript=text;$("command").value=text;},
+ onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
+ onState:(state,text)=>{if(state==="paused")coreState.error();$("voice-conversation-status").textContent=text;$("voice-start").textContent=state==="paused"?"音声会話を再開":"音声会話を開始";$("voice-start").disabled=!["stopped","paused"].includes(state);$("voice-stop").disabled=["stopped","paused"].includes(state);$("voice-status").textContent=text;}
+});
+$("voice-start").onclick=()=>{
+ if(busy)return say("処理終了後に開始してください");
+ if($("command").value.trim() && $("command").value!==voiceTranscript)return say("入力中の文章を先に送信または退避してください。音声で上書きしません。");
+ stopDictation();
+ $("speak").checked=true;void voiceConversation.start();
+};
+$("voice-stop").onclick=()=>voiceConversation.stop();
+document.addEventListener("visibilitychange",()=>{if(document.hidden){stopDictation();if(voiceConversation.active)voiceConversation.stop("画面が非表示になったため停止しました。戻ったら再開してください");}});
+window.addEventListener("pagehide",()=>{stopDictation();voiceConversation.stop();});
 $("orb-voice").onclick = voice;
 $("mic-command").onclick = voice;
 renderDrafts();

@@ -17,5 +17,5 @@ export function initCoreState(element, doc = document) {
     utterance.onerror=event=>{if(token!==speechToken)return;set('speaking',false);if(!['canceled','interrupted','not-allowed'].includes(event.error))error();};
   };
   doc.addEventListener('visibilitychange',render);render();
-  return {set,error,stopSpeech,trackSpeech};
+  return {set,error,stopSpeech,trackSpeech,clearError(){clearTimeout(errorTimer);failed=false;render();}};
 }
