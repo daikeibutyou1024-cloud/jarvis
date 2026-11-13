@@ -11,6 +11,7 @@
     "test:prototype-browser": "node tests/prototype-browser.mjs",
     "simulate:b": "node --import ./tests/no-network.js simulations/run-business-day.mjs",
     "test:simulation-b": "node --import ./tests/no-network.js --test tests/business-day.test.js",
-    "test:voice-browser": "node tests/voice-conversation-browser.mjs"
+    "test:voice-browser": "node tests/voice-conversation-browser.mjs",
+    "test:memory-browser": "node tests/memory-browser.mjs"
   }
 }

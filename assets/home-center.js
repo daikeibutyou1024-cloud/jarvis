@@ -2,10 +2,13 @@
 export function initHomeCenter() {
   const $=id=>document.getElementById(id), core=$('orb-voice');
   const chat=document.querySelector('.panel.chat');
-  $('home-communication').append(chat);
-  $('home-command').append($('voice-conversation-controls'));
-  $('home-command').append($('chat-form'));
-  $('home-command').append($('speak').closest('label'));
+  $('history-chat-slot').append(chat);
+  $('home-command').insertBefore($('voice-conversation-controls'),$('manual-input'));
+  $('manual-input').append($('chat-form'));
+  $('voice-options').append($('speak').closest('label'));
+  $('voice-options').append($('stop-speech'));
+  new MutationObserver(()=>{const items=$('conversation').querySelectorAll('.message');const latest=items[items.length-1];$('conversation-latest').textContent=latest?latest.textContent.slice(0,180):'会話・実行結果はまだありません';}).observe($('conversation'),{childList:true,subtree:true});
+  new MutationObserver(()=>{const text=$('status').textContent;if(text&&!/^(回答しました|J.A.R.V.I.S.が考え)/.test(text))$('conversation-latest').textContent=text.slice(0,180);}).observe($('status'),{childList:true,subtree:true,characterData:true});
   const labels={idle:'待機中',listening:'音声入力中',thinking:'回答生成中',speaking:'読み上げ中',error:'エラー / 内容を確認'};
   const update=({state='idle',listening=false,speaking=false,thinking=false}={})=>{
     $('overview').dataset.coreState=state;

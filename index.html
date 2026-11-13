@@ -56,13 +56,13 @@
               <div><dt>読み上げ</dt><dd id="home-speech-state">未確認</dd></div>
             </dl>
             <div class="hud-clock"><time id="home-time">--:--:--</time><p id="home-date"></p><small id="home-timezone"></small></div>
-            <h3>CONNECTIONS</h3>
+            <details id="system-connections"><summary>接続状態を開く</summary><h3>CONNECTIONS</h3>
             <dl class="system-readings">
               <div><dt>AI API</dt><dd id="ai-status">未確認</dd></div>
               <div><dt>D1保存</dt><dd id="db-status">未確認</dd></div>
               <div><dt>端末保存</dt><dd id="storage-status">確認中</dd></div>
             </dl>
-            <p class="hud-note">接続状態は操作結果に基づきます。自動診断・AI実行は行いません。</p>
+            <p class="hud-note">接続状態は操作結果に基づきます。自動診断・AI実行は行いません。</p></details>
           </aside>
           <div class="hud-core-stage">
             <div class="hud-core-heading">NEURAL INTERFACE <span>01 / CORE</span></div>
@@ -85,8 +85,19 @@
           <section id="home-communication" class="hud-panel" aria-label="COMMUNICATION">
             <h2>COMMUNICATION <span class="hud-accent">// LOG</span></h2>
             <p id="communication-state" role="status">待機中</p>
+            <p id="conversation-latest">会話・実行結果はまだありません</p>
+            <details id="communication-history"><summary>履歴を開く</summary><div id="history-chat-slot"></div><ul id="memory-conversations"></ul><form id="history-edit-form" hidden><label>利用者の発言<textarea id="history-edit-user" maxlength="2000" required></textarea></label><label>AI回答（未検証）<textarea id="history-edit-assistant" maxlength="8000" required></textarea></label><button type="submit">会話の編集を保存</button></form></details>
+            <details id="memory-panel"><summary>記憶・進行中の案件</summary>
+              <button id="memory-reload" type="button">認証して記憶を再読込</button>
+              <p id="memory-status" role="status">記憶は未読込。追加DBの準備・承認前は無効です。</p>
+              <label class="check"><input id="memory-use" type="checkbox" checked>確認済みの記憶・直近の会話を次の相談に使用</label>
+              <label class="check"><input id="memory-save-chat" type="checkbox">このページで今後の会話を保存（30日・最大50組）</label>
+              <form id="memory-form"><label>種類<select id="memory-kind"><option value="goal">目標</option><option value="preference">好み・方針</option><option value="rule">運用ルール</option><option value="setting">継続設定（秘密情報は禁止）</option><option value="work">作業メモ</option></select></label><label>記憶<textarea id="memory-text" maxlength="800" required></textarea></label><label class="check"><input id="memory-confirmed" type="checkbox">内容を確認した（真偽の保証ではありません）</label><button type="submit">記憶を保存</button><button id="memory-new" type="button">新しい記憶</button></form>
+              <button id="memory-work" type="button">今の保存案件を作業記憶に記録（未確認）</button><ul id="memory-list"></ul><div id="memory-projects"></div>
+              <p class="hint">同じ認証を共有するワークスペースの記憶です。個人別ではありません。認証情報は保存禁止。期限切れは参照対象外とし、次の保存操作でこの機能の記憶だけを整理します。</p>
+            </details>
           </section>
-          <div id="home-command" class="hud-panel"><span class="command-caption">COMMAND INPUT <span>手動送信 / 自動投稿なし</span></span></div>
+          <div id="home-command" class="hud-panel"><span class="command-caption">VOICE COMMAND</span><details id="manual-input"><summary>手動入力・送信を開く</summary></details><div id="voice-options"></div></div>
         </div>
         <div class="section-heading overview-extra">
           <h2>OPERATIONS / 部門一覧</h2>
@@ -478,7 +489,7 @@
           >
         </div>
         <p class="hint">
-          現在の部門を踏まえて回答します。会話履歴はこのページを開いている間のみ保持します。
+          会話の保存は明示的なON操作と認証が必要です。未保存の会話はこのページ内だけで保持します。
         </p>
         <div id="conversation" aria-live="polite">
           <p class="empty">次に進めたいことを教えてください。</p>
