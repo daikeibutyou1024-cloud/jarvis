@@ -10,15 +10,8 @@ import {defaultOutline,editorialReport} from '../lib/editorial.js';
 import {saveRevision,latestDocument} from '../lib/documents.js';
 import {monthlyReport} from '../lib/monthly-report.js';
 import {usdMicro} from '../lib/ai-money.js';
-export const STEPS=Object.freeze([
- {key:'collect',time:'12:00',minute:720},{key:'themes',time:'14:00',minute:840},
- {key:'content',time:'16:00',minute:960},{key:'save',time:'18:00',minute:1080},{key:'report',time:'19:30',minute:1170},
-].map(Object.freeze));
-export function jstSlot(value){
- if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/.test(value))throw Error('時刻はタイムゾーン付きISO形式で指定してください');
- const now=Date.parse(value),inputDay=value.slice(0,10);if(!Number.isFinite(now)||new Date(inputDay+'T00:00:00Z').toISOString().slice(0,10)!==inputDay)throw Error('時刻が不正です');
- const shifted=new Date(now+9*3600000);return {now,day:shifted.toISOString().slice(0,10),minute:shifted.getUTCHours()*60+shifted.getUTCMinutes()};
-}
+import {STEPS,jstSlot} from '../lib/mock-business-plan.js';
+export {STEPS,jstSlot};
 class Stop extends Error{constructor(code,message,state='blocked'){super(message);this.code=code;this.state=state;}}
 const fail=(code,message,state)=>{throw new Stop(code,message,state);};
 const notices={sources:'資料内容・出典の確認を模擬操作で行ってください',theme:'採用企画の承認が必要です。後続へ自動で進みません'};

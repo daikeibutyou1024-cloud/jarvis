@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J.A.R.V.I.S. Preview 永続モック</title>
+<style>body{background:#081522;color:#d5ecff;font:16px system-ui;max-width:1000px;margin:auto;padding:24px}button,input,select{font:inherit;padding:10px;margin:5px;max-width:95%}button{cursor:pointer}fieldset{margin:20px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#102333;padding:12px}#message{color:#ffdf91}label{display:inline-block}a{color:#8adfff}</style>
+<h1>Preview 永続モック</h1>
+<p>架空の資料・AI応答だけを使用します。実AI・RSS・外部投稿への通信はありません。自動起動・ポーリング・Cronはありません。原稿はモック専用領域に保存し、全文確認は未完了として扱います。</p>
+<p><a href="/">司令室へ戻る</a> ／ 月額上限1 USD。表示費用は模擬値、実請求は0です。</p>
+<form id="login"><label>アクセス用パスワード <input id="password" type="password" autocomplete="off" required></label><button>認証して読み込む</button></form>
+<button id="logout" type="button">認証を破棄</button><p id="message" role="status" aria-live="polite">未認証</p>
+<section id="manager" hidden>
+<p id="control"></p><button id="refresh">状態を再読込</button><button data-action="start">手動開始・再開</button><button data-action="stop">手動停止</button><button data-action="recover">期限切れ実行を中断回復</button>
+<fieldset><legend>手動で1工程を実行</legend>
+<label>模擬時刻（日本時間）<input id="at" type="datetime-local" value="2026-11-14T12:00"></label>
+<label>工程<select id="step"><option value="collect">12:00 収集</option><option value="themes">14:00 企画</option><option value="content">16:00 原稿</option><option value="save">18:00 保存</option><option value="report">19:30 日次報告</option></select></label><button id="tick">選択工程を1回実行</button>
+<p>指定工程の開始時刻以降、20:00未満のみ。時刻の巻き戻しや実行済み工程の再送はできません。承認待ちだけは確認後に同じ工程を再開できます。</p></fieldset>
+<h2>作業データ・模擬確認</h2><div id="items"></div><h2>実行履歴</h2><pre id="runs"></pre><h2>イベント履歴</h2><pre id="events"></pre>
+</section><script type="module" src="/assets/automation-mock.js"></script></html>

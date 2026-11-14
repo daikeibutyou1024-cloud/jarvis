@@ -1,5 +1,7 @@
 # J.A.R.V.I.S. AI副業司令室
 
+Preview専用D1の永続モック管理画面 `/automation-mock.html` を追加。初期無効・手動操作のみで、実AI/RSS/投稿を呼びません。設計・停止/再開・検証と未反映項目は [PREVIEW_MOCK_AUTOMATION.md](docs/PREVIEW_MOCK_AUTOMATION.md) を参照。
+
 開発ブランチ: `feature/ai-business-rebuild`。main・`backup-before-business-rebuild-2026-11-09` は保持。本番公開・自動投稿なし。
 
 ## 構成と機能
