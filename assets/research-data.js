@@ -1,5 +1,14 @@
 // Shared data contract. URLs are references only; the server never fetches user URLs.
 export const sourceCatalog = {
+  ollama: {
+    name: "Ollama公式リリース（ローカルAI活用の記事候補）",
+    url: "https://github.com/ollama/ollama/releases.atom",
+    policy: "https://github.com/ollama/ollama/releases",
+    host: "github.com",
+    pathPrefix: "/ollama/ollama/releases/tag/",
+    articleCandidates: true,
+    titlePrefix: "Ollama / ",
+  },
   digital: {
     name: "デジタル庁",
     url: "https://www.digital.go.jp/rss/news.xml",

@@ -25,6 +25,11 @@ const list = (x) => (x === undefined ? [] : Array.isArray(x) ? x : [x]);
 const plain = (value) =>
   String(typeof value === "object" ? value?.["#text"] || "" : value || "")
     .replace(/<[^>]*>/g, " ")
+    .replace(/&#(x[0-9a-f]+|[0-9]+);/gi, (_, code) => {
+      const n = code[0].toLowerCase()==='x' ? parseInt(code.slice(1),16) : Number(code);
+      return n>0 && n<=0x10ffff && !(n>=0xd800&&n<=0xdfff) ? String.fromCodePoint(n) : '';
+    })
+    .replace(/&(amp|quot|apos|lt|gt|nbsp);/g, (_, key) => ({amp:'&',quot:'"',apos:"'",lt:'<',gt:'>',nbsp:' '})[key])
     .replace(/\s+/g, " ")
     .trim();
 export function destination(source, query) {
@@ -180,7 +185,7 @@ export function parseRecords(text, source, now = new Date().toISOString()) {
                 (l) => !l["@_rel"] || l["@_rel"] === "alternate",
               )?.["@_href"],
         text:
-          plain(r.description || r.summary || "").slice(0, 350) ||
+          plain(r.description || r.summary || r.content || "").slice(0, 350) ||
           "RSS配信に要約はありません。本文の取得状態は別項目です。",
         publishedAt:
           plain(r.date || r.pubDate || r.published || r.updated) || null,
@@ -190,14 +195,16 @@ export function parseRecords(text, source, now = new Date().toISOString()) {
     .filter((r) => {
       try {
         const u = new URL(referenceUrl(r.url));
-        return u.hostname === sourceCatalog[source].host && !!r.title;
+        const catalog = sourceCatalog[source];
+        return u.hostname === catalog.host && !!r.title &&
+          (!catalog.pathPrefix || u.pathname.startsWith(catalog.pathPrefix));
       } catch {
         return false;
       }
     })
     .map((r, i) => ({
       id: `${source}:${i}:${now}`,
-      title: r.title,
+      title: ((sourceCatalog[source].titlePrefix || "") + r.title).slice(0,160),
       text: r.text,
       sourceUrl: referenceUrl(r.url),
       fetchedAt: now,
@@ -210,6 +217,37 @@ export function parseRecords(text, source, now = new Date().toISOString()) {
       price: "",
       affiliate: "",
     }));
+}
+// Feed order is not trusted; invalid/future dates are not presented as current news.
+export function selectCandidates(items, now = Date.now()) {
+  const seen = new Set();
+  return [...items].sort((a,b) => Date.parse(b.publishedAt)-Date.parse(a.publishedAt)).filter(item => {
+    const time = Date.parse(item.publishedAt);
+    if (!Number.isFinite(time) || time > now) return false;
+    let url;try { url = new URL(item.sourceUrl); } catch { return false; }
+    url.hash = '';const key = url.href;
+    if (seen.has(key)) return false;seen.add(key);return true;
+  }).slice(0,5).map(item=>{const url=new URL(item.sourceUrl);url.hash="";return {...item,sourceUrl:url.href};});
+}
+// This fixed public feed path never touches D1. Platform cache contains public data only.
+export async function candidateResponse(request, source, query) {
+  const cache = globalThis.caches?.default;
+  const key = new Request(new URL('/__research_feed_cache_v1/'+source,request.url).href);
+  try {
+    const hit = cache && await cache.match(key);
+    if(hit) { const data=await hit.json(); return json({...data,cached:true,query}); }
+    let data;
+    try {
+      const items=selectCandidates(parseRecords(await boundedFetch(destination(source,query),source),source));
+      data={status:'acquired',label:items.length?'取得済み':'取得済み（有効な記事候補0件）',items,fetchedAt:new Date().toISOString()};
+    } catch {
+      data={status:'unavailable',label:'未取得',items:[],fetchedAt:null,error:'公式配信元への接続・形式・容量・時刻の確認に失敗しました。架空情報で補完しません。'};
+    }
+    const result={...data,source,sourceName:sourceCatalog[source].name,policyUrl:sourceCatalog[source].policy,query,cached:false,
+      scope:'Ollama公式の公開リリースから、ローカルAI活用の記事候補を最大5件。概要は配信元の抜粋です。RC版を含みます。AI要約・収益予測・キーワード絞り込みは行いません。'};
+    if(cache) await cache.put(key,new Response(JSON.stringify(result),{headers:{'content-type':'application/json','cache-control':'public, max-age='+ (data.status==='acquired'?3600:300)}}));
+    return json(result);
+  } catch { return unavailable('キャッシュの処理に失敗しました。情報は未取得です'); }
 }
 export const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS research_cache (key TEXT PRIMARY KEY, payload TEXT NOT NULL, expires_at INTEGER NOT NULL)",
@@ -235,6 +273,7 @@ export async function onRequestGet({ request, env }) {
       "許可された情報源と1〜80文字のキーワードを指定してください",
       400,
     );
+  if (sourceCatalog[source].articleCandidates) return candidateResponse(request, source, query);
   if (!env.JARVIS_DB)
     return unavailable("D1未接続のため、安全な回数制限を利用できません");
   const now = Math.floor(Date.now() / 1000),

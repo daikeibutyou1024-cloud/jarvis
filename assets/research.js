@@ -62,7 +62,6 @@ export function initResearch({
     for (const item of items) {
       const index = next.findIndex(
         (r) =>
-          r.origin === item.origin &&
           r.sourceUrl &&
           r.sourceUrl === item.sourceUrl,
       );
@@ -121,7 +120,7 @@ export function initResearch({
       text.textContent = r.text;
       const meta = document.createElement("p");
       meta.className = "hint";
-      meta.textContent = `取得日時：${r.fetchedAt || "未取得（手入力・AI・取り込み）"} / 記録日時：${r.recordedAt || "未取得"} / 元情報の日時：${r.publishedAt || "未取得"}`;
+      meta.textContent = `情報源：${sourceCatalog[r.origin]?.name || r.origin} / 取得日時：${r.fetchedAt || "未取得（手入力・AI・取り込み）"} / 記録日時：${r.recordedAt || "未取得"} / 元情報の日時：${r.publishedAt || "未取得"}`;
       const compare = document.createElement("p");
       compare.className = "hint";
       compare.textContent = `価格：${r.price || "未取得"} / アフィリエイト条件：${r.affiliate || "未取得"}`;
@@ -267,14 +266,14 @@ export function initResearch({
         "/api/research/collect?" + new URLSearchParams({ source, q: query }),
       );
       $("research-status").textContent =
-        `${sourceCatalog[source].name} / キーワード：${query} / ${data.label} / ${data.cached ? "キャッシュ" : "今回の取得"} / 取得日時：${data.fetchedAt || "未取得"}${data.error ? " / " + data.error : ""}`;
+        `${sourceCatalog[source].name} / キーワード：${sourceCatalog[source].articleCandidates ? "固定テーマ：ローカルAI活用" : query} / ${data.label} / ${data.cached ? "キャッシュ" : "今回の取得"} / 取得日時：${data.fetchedAt || "未取得"}${data.error ? " / " + data.error : ""}`;
       $("research-scope").textContent = data.scope || "";
       if (
         data.status === "acquired" &&
         Array.isArray(data.items) &&
         data.items.every(valid)
       ) {
-        if (add(data.items))
+        if (add(sourceCatalog[source].articleCandidates ? [...data.items].reverse() : data.items))
           say(
             `${sourceCatalog[source].name}の資料を${data.items.length}件記録しました`,
           );
