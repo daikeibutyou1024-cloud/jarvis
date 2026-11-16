@@ -6,3 +6,5 @@ test('manual FX retains currency and conditions, computes exact rounded recorded
  const revenue=validateMoney({id:'1',date:'2026-11-16',category:'note',currency:'JPY',original:'1000'}),cost=validateMoney({id:'2',date:'2026-11-16',category:'claude',currency:'USD',original:'2',rate:'150',rateDate:'2026-11-16',rateSource:'本人が明細で確認'});
  const r=report({ledger:[revenue,cost,cost]},'2026-11-16');assert.deepEqual(r.month,{revenue:1000,cost:300,profit:700,count:2});assert.equal(cost.original,2);assert.equal(cost.rate,150);assert.equal(cost.currency,'USD');assert.throws(()=>validateMoney({...cost,rateSource:''}));assert.throws(()=>validateMetric({projectId:'p',date:'2026-11-16',xViews:'-1'}));assert.throws(()=>validateMoney({...revenue,original:''}));
 });
+
+test('impossible dates and invalid FX dates do not enter reports',()=>{assert.throws(()=>validateMetric({projectId:'p',date:'2026-02-30'}));assert.throws(()=>validateMoney({category:'note',date:'2026-13-01',original:'1',currency:'JPY'}));assert.throws(()=>validateMoney({category:'openai',date:'2026-11-16',original:'1',currency:'USD',rate:'150',rateDate:'2026-02-30',rateSource:'test'}));});
