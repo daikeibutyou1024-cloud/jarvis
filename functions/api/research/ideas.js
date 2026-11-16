@@ -1,3 +1,4 @@
+import {liveAIPolicy} from '../../../lib/ai-runtime.js';
 import {createDiagnostic} from '../../../lib/ai-diagnostics.js';
 import {
   denied,
@@ -13,6 +14,8 @@ import {
 export async function onRequestPost({ request, env }) {
   const auth = denied(request, env);
   if (auth) return auth;
+  return new Response(JSON.stringify({error:liveAIPolicy().reason,code:'AI_BUDGET_UNVERIFIED',budget:liveAIPolicy()}),{status:503,headers:{'content-type':'application/json','cache-control':'no-store'}});
+
 
   let evidence, topic, prompt;
   try {

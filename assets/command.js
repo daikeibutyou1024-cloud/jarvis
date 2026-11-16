@@ -500,14 +500,17 @@ async function generate(cloud, continuation = false) {
   say(
     cloud
       ? "AIが作成し、クラウドに保存しています…"
-      : "AIが下書きを作成しています…",
+      : (department==='content' && $('content-preview-mock').checked ? "モック下書き作成中（実AI通信なし）…" : "AIが下書きを作成しています…"),
   );
   const dept = department;
   const priorLocalRevision=localRevision;
   const draftWorkflow=currentWorkflow || (["note記事","note無料記事","note有料記事"].includes(b.format)?editorial?.rawWorkflow():null);
   const targetDocument=currentWorkflow || (options?.mode && options.mode!=="full")?{...currentDocument}:{projectId:crypto.randomUUID(),revision:0};
   try {
-    const data = cloud
+    const previewMock=dept==='content' && !cloud && $('content-preview-mock').checked;
+    const data = previewMock
+      ? await request('/api/business/content-preview','POST',{generation:options})
+      : cloud
       ? await request("/api/business/jobs", "POST", {
           ...b,
           department: dept,

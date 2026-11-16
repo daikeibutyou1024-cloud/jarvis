@@ -1,3 +1,4 @@
+import {liveAIPolicy} from '../../lib/ai-runtime.js';
 import {
   generationOptions,
   generationPrompt,
@@ -24,6 +25,7 @@ export async function onRequestPost({ request, env }) {
     ) {
       return json({ error: "パスワードが違います" }, 401);
     }
+  return new Response(JSON.stringify({error:liveAIPolicy().reason,code:'AI_BUDGET_UNVERIFIED',budget:liveAIPolicy()}),{status:503,headers:{'content-type':'application/json','cache-control':'no-store'}});
     const body = await request.json();
     const prompt = String(body.prompt || "").trim();
     if (!prompt || prompt.length > 6000)

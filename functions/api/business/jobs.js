@@ -1,3 +1,4 @@
+import {liveAIPolicy} from '../../../lib/ai-runtime.js';
 import {createDiagnostic} from '../../../lib/ai-diagnostics.js';
 import {articleBody} from "../../../lib/paid-content.js";
 import {storedGenerationOptions} from "../../../lib/editorial.js";
@@ -77,6 +78,8 @@ export async function onRequestGet({ request, env }) {
 export async function onRequestPost({ request, env }) {
   const denied = authError(request, env);
   if (denied) return denied;
+  return new Response(JSON.stringify({error:liveAIPolicy().reason,code:'AI_BUDGET_UNVERIFIED',budget:liveAIPolicy()}),{status:503,headers:{'content-type':'application/json','cache-control':'no-store'}});
+
   if (!env.JARVIS_DB) return json({ error: "D1未接続" }, 503);
   const provider = String(env.AI_PROVIDER || "anthropic").toLowerCase();
   if (!["anthropic", "openai"].includes(provider))

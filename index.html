@@ -309,6 +309,8 @@
           <section class="panel">
             <h3>制作ブリーフ</h3>
             <div id="content-generation-tools" hidden>
+              <label><input id="content-preview-mock" type="checkbox" checked>Previewモック生成（実AI通信・課金なし）</label>
+              <p class="hint">実API予算は5 USD。ただし残高・他経路の消費は未確認のため、実生成は停止中です。モックはnote無料記事・記事全体に対応します。生成後は編集し「この端末に保存」を使用してください。</p>
               <label for="content-generation-mode">記事の生成方法</label
               ><select id="content-generation-mode">
                 <option value="full">記事全体を作成</option>
@@ -366,13 +368,13 @@
               </p>
               <div class="actions">
                 <button type="submit" class="primary" id="generate">
-                  AIで作成</button
+                  下書きを作成</button
                 ><button type="button" id="cloud-generate">
                   AIで作成＋クラウド保存
                 </button>
               </div>
               <p class="hint">
-                クラウド生成は1日5件、企画は2回、会話・通常生成も含むAI利用合計は1日10回まで（UTC・失敗分含む）。既存API料金が発生します。
+                実AI生成は残高・他経路の消費が未確認のため停止中です。CONTENTのPreviewモックは実AIを使いません。クラウド保存は今回の確認では使わず、端末保存を選んでください。
               </p>
             </form>
           </section>
