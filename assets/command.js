@@ -1,3 +1,4 @@
+import {initQuickDraft} from './quick-draft.js';
 import {initActivityReport} from './activity-report.js';
 import {dateJST} from '../lib/activity-report.js';
 import {initMarketingPreview} from './marketing-preview.js';
@@ -1233,3 +1234,5 @@ marketingPreview=initMarketingPreview({say,getArticle:()=>outputDepartment==='co
 
 window.addEventListener('jarvis-ledger-changed',()=>{ledger=read(keys.ledger,[]);renderFinance();});
 initActivityReport({say});
+
+initQuickDraft({request,say});

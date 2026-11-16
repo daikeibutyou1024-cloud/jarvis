@@ -1,3 +1,4 @@
+import {latestPacks,QUICK_KEY} from '../lib/quick-draft.js';
 import {report,validateMetric,validateMoney,metricFields,categories,dateJST} from '../lib/activity-report.js';
 const METRICS='jarvis_project_metrics_v1',LEDGER='jarvis_business_ledger_v2';
 export function initActivityReport({say}){
@@ -11,7 +12,7 @@ export function initActivityReport({say}){
  function controls(parent,edit,del){const e=document.createElement('button'),d=document.createElement('button');e.textContent='編集';d.textContent='削除';e.onclick=edit;d.onclick=()=>{if(confirm('この入力記録を削除しますか？'))void del().catch(x=>say(x.message));};parent.append(e,d);}
  function refresh(){try{
  const page=location.hash.slice(1)||'overview';root.hidden=page!=='analytics';$('activity-finance').hidden=page!=='finance';if(page==='analytics')$('analytics-tools').hidden=true;if(page==='finance')$('finance-tools').hidden=true;
- const data={records:read('jarvis_research_records_v2'),drafts:read('jarvis_business_drafts_v1'),social:read('jarvis_social_drafts_v1'),metrics:read(METRICS),ledger:read(LEDGER)},r=report(data),month=$('activity-month').value;$('activity-finance-month').value=month;
+ const data={records:read('jarvis_research_records_v2'),drafts:read('jarvis_business_drafts_v1'),social:read('jarvis_social_drafts_v1'),metrics:read(METRICS),ledger:read(LEDGER)};for(const p of latestPacks(read(QUICK_KEY))){data.records.push(p.source);data.drafts.push({department:'content',document:{projectId:p.projectId},localRevision:p.revision,activityDate:dateJST(new Date(p.createdAt)),topic:p.title,generation:p.generation,evidence:p.evidence});data.social.push({projectId:p.projectId,title:p.title,x:p.x,instagram:p.instagram,mock:true,createdAt:p.createdAt});}const r=report(data),month=$('activity-month').value;$('activity-finance-month').value=month;
  const counters=$('activity-counts');counters.replaceChildren();text(counters,`取得済み資料 ${r.research}件 / 手入力等 ${r.manualResearch}件 ／ 記事 ${r.articles}件（モック ${r.mockArticles}件）／ SNS案 ${r.social}件（モック ${r.mockSocial}件）`);
  const legacy=JSON.parse(localStorage.getItem('jarvis_business_metrics_v2')||'{}');for(const [month,m] of Object.entries(legacy)){text(counters,`旧月次記録 ${month}（手入力・案件不明、案件別集計には加算しません）：閲覧 ${m.visits??'未登録'} / クリック ${m.clicks??'未登録'} / 成果 ${m.conversions??'未登録'}`);}
  const projects=$('activity-projects'),options=$('activity-project-ids');projects.replaceChildren();options.replaceChildren();let published=0;
@@ -29,6 +30,6 @@ export function initActivityReport({say}){
  mf.onsubmit=async e=>{e.preventDefault();try{const row=validateMetric(Object.fromEntries(new FormData(mf)));await change(METRICS,rows=>[...rows.filter(x=>(x.projectId!==row.projectId||x.date!==row.date)&&(x.projectId+'|'+x.date)!==mf.dataset.original),row]);delete mf.dataset.original;say('成果を手入力として保存しました');}catch(e){say(e.message);}};
  ff.onsubmit=async e=>{e.preventDefault();try{const row=validateMoney(Object.fromEntries(new FormData(ff)));row.id ||= crypto.randomUUID();await change(LEDGER,rows=>[...rows.filter(x=>x.id!==row.id),row]);ff.reset();ff.elements.date.value=dateJST();ff.elements.rate.value='1';say('収支を手入力として保存しました。API請求の取得はしていません');}catch(e){say(e.message);}};
  $('activity-money-clear').onclick=()=>{ff.reset();ff.elements.id.value='';ff.elements.date.value=dateJST();ff.elements.rate.value='1';};$('activity-month').onchange=refresh;$('activity-finance-month').onchange=()=>{$('activity-month').value=$('activity-finance-month').value;refresh();};
- window.addEventListener('hashchange',refresh);window.addEventListener('storage',refresh);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+ window.addEventListener('jarvis-quick-changed',refresh);window.addEventListener('hashchange',refresh);window.addEventListener('storage',refresh);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
  for(const id of ['drafts','research-records','marketing-saved','ledger']){const node=$(id);if(node)new MutationObserver(refresh).observe(node,{childList:true});}refresh();
 }

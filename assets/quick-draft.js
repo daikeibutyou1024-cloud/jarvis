@@ -1,0 +1,22 @@
+import {createPack,savePack,latestPacks,QUICK_KEY} from '../lib/quick-draft.js';
+export function initQuickDraft({request,say}){
+ const $=id=>document.getElementById(id);let current=null,busy=false,dirty=false,stage='';
+ const read=()=>latestPacks(JSON.parse(localStorage.getItem(QUICK_KEY)||'[]'));
+ function lock(value){for(const id of ['quick-create','quick-save','quick-approve','quick-article','quick-x','quick-instagram','quick-source-check','quick-content-check'])$(id).disabled=value;}
+ function status(text){$('quick-status').textContent=text;}
+ function list(){const root=$('quick-saved');root.replaceChildren();for(const p of read().sort((a,b)=>b.savedAt.localeCompare(a.savedAt))){const b=document.createElement('button');b.textContent=p.title+' / '+(p.approvedAt?'本人確認済み':'未確認')+' / '+p.savedAt;b.onclick=()=>{if(busy)return;if(dirty&&!confirm('未保存の編集を置き換えますか？'))return;current=structuredClone(p);dirty=false;render();status('保存版を開きました。自動取得・公開はしません。');};root.append(b);}}
+ function render(){if(!current)return;$('quick-result').hidden=false;$('quick-project').textContent=`案件ID：${current.projectId} / 版${current.revision} / Previewモック・実AI不使用 / ${current.approvedAt?'本人確認済み（公開はしていません）':'資料・記事・投稿案は未確認'}`;const s=$('quick-source');s.replaceChildren();const a=document.createElement('a');a.href=current.source.sourceUrl;a.textContent=current.source.title;a.target='_blank';a.rel='noopener noreferrer';s.append(a,document.createTextNode(` / 公開：${current.source.publishedAt} / 取得：${current.source.fetchedAt} / 情報源：Ollama公式 / ${current.source.reviewedAt?'本人確認済み':'真偽・全文は未確認'}`));for(const [id,key] of [['quick-article','article'],['quick-x','x'],['quick-instagram','instagram']])$(id).value=current[key];$('quick-source-check').checked=$('quick-content-check').checked=!!current.approvedAt;}
+ async function persist(){current=await savePack(localStorage,navigator.locks,current,current.revision===0?0:current.revision);dirty=false;list();render();window.dispatchEvent(new Event('jarvis-quick-changed'));}
+ const button=$('quick-create');button.onclick=async()=>{
+  if(busy)return;if(dirty&&!confirm('未保存の編集があります。新しい案件を作成しますか？'))return;
+  busy=true;lock(true);
+  try{stage='公開情報の取得';status('1/3 公開情報を取得しています。初回は管理パスワードを入力してください…');const data=await request('/api/research/collect?source=ollama&q=AI');stage='記事・SNS案の作成';status('2/3 未確認の資料からPreviewモック下書きを作成しています…');current=createPack(data,crypto.randomUUID());current.revision=0;dirty=true;render();stage='端末への保存';status('3/3 同じ案件IDで端末保存しています…');await persist();status('下書きとSNS案を保存しました。下の1画面で確認・編集してください。公開はしていません。');}
+  catch(e){status(`${stage}で停止しました：${e.message}。表示中の結果がある場合は「編集を保存」で保存を再試行できます。情報取得からやり直す場合は「記事とSNS案をまとめて作成」を押してください。自動再送しません。`);}
+  finally{busy=false;lock(false);}
+ };
+ for(const id of ['quick-article','quick-x','quick-instagram'])$(id).oninput=()=>{if(!current)return;current.article=$('quick-article').value;current.x=$('quick-x').value;current.instagram=$('quick-instagram').value;current.approvedAt=null;current.source.reviewedAt=null;$('quick-source-check').checked=$('quick-content-check').checked=false;dirty=true;status('未保存の編集があります。「編集を保存」を押してください。承認状態は解除しました。');};
+ async function save(approve=false){if(busy||!current)return;busy=true;lock(true);try{if(!current.article.trim()||!current.x.trim()||!current.instagram.trim())throw Error('記事と投稿案を空にしないでください');if(approve){if(!$('quick-source-check').checked||!$('quick-content-check').checked)throw Error('出典と内容を本人が確認して、両方にチェックしてください');current.approvedAt=new Date().toISOString();current.source.reviewedAt=current.approvedAt;}await persist();status(approve?'本人の確認を記録し保存しました。公開はしていません。':'編集を新しい版として保存しました。');}catch(e){status(e.message+' 編集は画面に残っています。コピーして退避できます。');}finally{busy=false;lock(false);}}
+ $('quick-save').onclick=()=>save();$('quick-approve').onclick=()=>save(true);
+ for(const key of ['article','x','instagram'])$('quick-copy-'+key).onclick=async()=>{try{await navigator.clipboard.writeText($('quick-'+key).value);status('コピーしました。自動投稿は行いません。');}catch{$('quick-'+key).focus();$('quick-'+key).select();status('文章を選択しました。端末のコピー操作を使ってください。');}};
+ window.addEventListener('storage',e=>{if(e.key===QUICK_KEY)try{list();}catch(e){say(e.message);}});try{list();const packs=read().sort((a,b)=>b.savedAt.localeCompare(a.savedAt));if(packs.length){current=structuredClone(packs[0]);render();status('前回保存した下書きを表示しています。新たな取得・生成・公開はしていません。');}}catch(e){status(e.message+' 新規作成せず、既存データを確認してください。');button.disabled=true;}
+}
