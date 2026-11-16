@@ -499,9 +499,10 @@
           <p class="empty">次に進めたいことを教えてください。</p>
         </div>
         <div id="voice-conversation-controls" class="actions">
-          <button id="voice-start" type="button">音声会話を開始</button><button id="voice-stop" type="button" disabled>音声会話を停止</button>
-          <p id="voice-conversation-status" role="status">開始操作後、確定した音声を自動送信します。AI利用料金と既存の回数制限が適用されます。</p>
-          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。球体・◎は従来の文字起こし。音声会話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
+          <label><input id="chat-preview-mock" type="checkbox" checked>Previewモック回答（実AI・DB利用なし）</label>
+          <button id="voice-start" type="button">音声対話開始</button><button id="voice-stop" type="button" disabled>音声対話終了</button>
+          <p id="voice-conversation-status" role="status">開始後は発話の終わりに自動送信し、回答を読み上げて再び待ち受けます。現在はPreviewモック回答です。ブラウザの音声認識は音声をブラウザ提供元へ送る場合があります。iPhoneは画面を開いたまま使用し、自動再開できない場合は「音声対話を再開」をタップしてください。</p>
+          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。球体・◎は従来の文字起こし。音声対話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
         </div>
         <form id="chat-form" class="command-row">
           <button

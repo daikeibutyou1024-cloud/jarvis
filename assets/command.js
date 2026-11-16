@@ -135,7 +135,7 @@ function authenticate() {
 async function request(url, method = "GET", body) {
   const secret = await authenticate();
   if (!secret) throw Error("認証をキャンセルしました");
-  const aiRequest=method==="POST" && ["/api/chat","/api/business/jobs"].includes(url);
+  const aiRequest=method==="POST" && ["/api/chat","/api/business/jobs","/api/business/chat-preview"].includes(url);
   if(aiRequest)coreState.set("thinking",true);
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),75000);
@@ -153,7 +153,7 @@ async function request(url, method = "GET", body) {
     if (response.status === 401) {
       password = "";
       authEpoch++;memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
-      voiceConversation?.stop("認証に失敗しました。認証を確認して音声会話を再開してください");
+      voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
     }
@@ -210,7 +210,7 @@ function navigate(next) {
   setMenuOpen(false);
   page = next in departments ? next : "overview";
   document.body.dataset.currentPage=page;
-  if(page!=="overview" && voiceConversation?.active)voiceConversation.stop("部門を切り替えたため音声会話を停止しました");
+  if(page!=="overview" && voiceConversation?.active)voiceConversation.stop("部門を切り替えたため音声対話を停止しました");
   updateOperationalPanels(page);
   if (page !== "overview") department = page;
   // HOME owns the existing chat and input nodes; department switching never clones them.
@@ -972,9 +972,9 @@ function playWelcome() {
 if (location.hash === "" || location.hash === "#overview") {
   window.addEventListener("load", () => playWelcome(), { once: true });
 }
-$("stop-speech").onclick = () => {if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");coreState.stopSpeech();window.speechSynthesis?.cancel();};
+$("stop-speech").onclick = () => {if(voiceConversation?.active)voiceConversation.stop("読み上げと音声対話を停止しました");coreState.stopSpeech();window.speechSynthesis?.cancel();};
 async function sendChat(command,voiceMode=false) {
-  if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声会話を再開してください");return null;}
+  if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声対話を再開してください");return null;}
   command=command.trim();
   if (!command) return null;
   try{rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});}catch{const error=Error("認証情報の可能性があるため送信・記憶しません。入力を確認してください");say(error.message);if(voiceMode)throw error;return null;}
@@ -984,7 +984,8 @@ async function sendChat(command,voiceMode=false) {
   $("command").value = "";
   say("J.A.R.V.I.S.が考えています…");
   try {
-    const remembered=await memoryUI.prepare(command);
+    const previewChat=$('chat-preview-mock').checked;
+    const remembered=previewChat?{context:''}:await memoryUI.prepare(command);
     rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});
     if(epoch!==authEpoch)return null;
     if(remembered.local){message('assistant',remembered.local);say(remembered.local);if(!voiceMode)speak(remembered.local);return remembered.local;}
@@ -1008,7 +1009,9 @@ async function sendChat(command,voiceMode=false) {
       "\n会話履歴：" +
       (remaining>memoryText.length ? previous.slice(-(remaining-memoryText.length)) : "") +
       question;
-    const data = await request("/api/chat", "POST", { prompt });
+    const data = previewChat
+      ? await request('/api/business/chat-preview','POST',{message:command,conversation:history.slice(-8).map(r=>({role:r.role,text:r.text.slice(0,2000)}))})
+      : await request("/api/chat", "POST", { prompt });
     if(epoch!==authEpoch)return null;
     if (typeof data.answer!=="string" || !data.answer.trim()) throw Error("回答が空または不正な形式でした。実行履歴を確認してください");
     message("assistant", data.answer);
@@ -1018,7 +1021,7 @@ async function sendChat(command,voiceMode=false) {
     );
     if (history.length > 12) history.splice(0, history.length - 12);
     $("ai-status").textContent = "応答成功";
-    await memoryUI.record(command,data.answer);
+    if(!previewChat)await memoryUI.record(command,data.answer);
     if(epoch!==authEpoch)return null;
     if(!voiceMode)speak(data.answer);
     say("回答しました");
@@ -1110,7 +1113,7 @@ function speakVoiceReply(text){
   const start=utterance.onstart,end=utterance.onend,error=utterance.onerror;
   utterance.onstart=e=>{start?.(e);clearTimeout(startTimer);};
   utterance.onend=e=>{end?.(e);finish();};
-  utterance.onerror=e=>{error?.(e);finish(Error("Safariが読み上げを開始・継続できませんでした。回答は画面で確認し、音声会話を再開してください"));};
+  utterance.onerror=e=>{error?.(e);finish(Error("Safariが読み上げを開始・継続できませんでした。回答は画面で確認し、音声対話を再開してください"));};
   startTimer=setTimeout(()=>finish(Error("読み上げを開始できませんでした。画面の回答を確認してタップで再開してください")),5000);
   endTimer=setTimeout(()=>finish(Error("読み上げが終了しませんでした。再開操作をしてください")),180000);
   try{speechSynthesis.speak(utterance);}catch{finish(Error("読み上げを開始できませんでした。タップで再開してください"));}
@@ -1124,7 +1127,7 @@ voiceConversation=createVoiceConversation({
  isBusy:()=>busy,isHidden:()=>document.hidden||page!=="overview",
  onTranscript:text=>{voiceTranscript=text;$("command").value=text;},
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{if(state==="paused")coreState.error();$("voice-conversation-status").textContent=text;$("voice-start").textContent=state==="paused"?"音声会話を再開":"音声会話を開始";$("voice-start").disabled=!["stopped","paused"].includes(state);$("voice-stop").disabled=["stopped","paused"].includes(state);$("voice-status").textContent=text;}
+ onState:(state,text)=>{if(state==="paused")coreState.error();$("voice-conversation-status").textContent=text;$("voice-start").textContent=state==="paused"?"音声対話を再開":"音声対話開始";$("voice-start").disabled=!["stopped","paused"].includes(state);$("voice-stop").disabled=["stopped","paused"].includes(state);$("voice-status").textContent=text;}
 });
 $("voice-start").onclick=()=>{
  if(busy)return say("処理終了後に開始してください");

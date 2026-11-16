@@ -907,3 +907,6 @@ body[data-current-page="overview"] #status { font-size:11px;line-height:1.6;max-
  body[data-current-page="overview"] main > header { gap:5px; }
  body[data-current-page="overview"] main > header .badge { font-size:8px;padding:3px 5px; }
 }
+
+/* Recording state is explicit on both microphone controls. */
+#mic-command[aria-pressed="true"], #orb-voice[aria-pressed="true"] { color:#ff294d; border-color:#ff294d; }
