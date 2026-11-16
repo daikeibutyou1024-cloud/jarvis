@@ -98,18 +98,32 @@ let businessStore = null;
 let research = null, editorial = null, currentWorkflow = null, selectedEditorialSection = "";
 let currentGeneration = null,
   currentEvidence = "";
-// Retire the former persistent password cache. Authentication remains unchanged on the server.
+// Retire plaintext password caching. Preview uses a signed HttpOnly session cookie.
 try {
   localStorage.removeItem("jarvis_access_password");
   $("storage-status").textContent = "端末内のみ";
 } catch {
   $("storage-status").textContent = "利用できません";
 }
-function authenticate() {
+const SESSION='__jarvis_cookie_session__';
+const sessionMode=location.protocol==='https:'&&/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname);
+let sessionReady=false,sessionGate=null,sessionExpiryTimer=null;
+function unlockSessionUI(expiresAt){
+  clearTimeout(sessionExpiryTimer);if(!Number.isFinite(expiresAt)||expiresAt<=Date.now())return;
+  document.querySelector('main').inert=false;sessionGate?.remove();sessionGate=null;
+  sessionExpiryTimer=setTimeout(()=>{sessionReady=false;voiceConversation?.stop('セッション期限切れのため停止しました');lockSessionUI();},expiresAt-Date.now());
+}
+function lockSessionUI(){
+ if(!sessionMode)return;document.querySelector('main').inert=true;
+ if(sessionGate)return;sessionGate=document.createElement('section');sessionGate.className='session-gate';const p=document.createElement('p'),b=document.createElement('button');p.textContent='管理者ログインが必要です。保存した端末データは削除しません。';b.textContent='ログインする';b.onclick=()=>authenticate().catch(e=>say(e.message));sessionGate.append(p,b);document.body.append(sessionGate);
+}
+async function authenticate() {
+  if(sessionMode&&!authPending){try{const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});const d=await r.json();sessionReady=r.ok&&d.authenticated===true;if(sessionReady)unlockSessionUI(Date.now()+d.expiresInSeconds*1000);else lockSessionUI();}catch{throw Error('ログイン状態を確認できません。通信を確認して再試行してください');}}
+  if(sessionMode&&sessionReady)return SESSION;
   if (password) return Promise.resolve(password);
   if (authPending) return authPending;
   authPending = new Promise((resolve) => {
-    let settled = false;
+    let settled = false,submitting=false;
     const finish = (value) => {
       if (settled) return;
       settled = true;
@@ -121,13 +135,16 @@ function authenticate() {
       authPending = null;
       resolve(value);
     };
-    const submit = (e) => {
+    const submit = async (e) => {
       e.preventDefault();
-      password = $("password").value;
-      finish(password);
+      if(!sessionMode){password=$('password').value;finish(password);return;}
+      if(submitting)return;submitting=true;
+      const secret=$('password').value;$('password').value='';
+      try{const r=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'x-jarvis-password':secret}});if(!r.ok){say('パスワードを確認して再入力してください');return;}const d=await r.json();sessionReady=true;unlockSessionUI(Date.now()+d.expiresInSeconds*1000);password='';finish(SESSION);}catch{say('ログインに失敗しました。通信を確認してください');}finally{submitting=false;}
     };
     const cancel = (e) => {
       e?.preventDefault();
+      if(submitting){say('認証処理中です。完了を待ってください');return;}
       finish(null);
     };
     $("auth-form").addEventListener("submit", submit);
@@ -146,7 +163,7 @@ async function request(url, method = "GET", body) {
   const timer=setTimeout(()=>controller.abort(),75000);
   let response,data;
   try {
-    response=await fetch(url,{method,signal:controller.signal,headers:{"Content-Type":"application/json","x-jarvis-password":secret},...(body?{body:JSON.stringify(body)}:{})});
+    response=await fetch(url,{method,signal:controller.signal,credentials:"same-origin",headers:{"Content-Type":"application/json",...(secret===SESSION?{}:{"x-jarvis-password":secret})},...(body?{body:JSON.stringify(body)}:{})});
     data=await response.json();
   }catch(error){
     if(aiRequest)coreState.error();
@@ -156,7 +173,7 @@ async function request(url, method = "GET", body) {
   if (!response.ok) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
-      password = "";
+      password = "";sessionReady=false;lockSessionUI();
       authEpoch++;memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
@@ -171,7 +188,8 @@ async function request(url, method = "GET", body) {
   if(method==='POST' && url==='/api/business/jobs')prototypeFlow?.success('生成結果を保存しました。未完成状態と出典を確認し、保存版を再読込してください。');
   return data;
 }
-$("logout").onclick = () => {
+$("logout").onclick = async () => {
+  if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
   authEpoch++;memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
@@ -1235,4 +1253,6 @@ marketingPreview=initMarketingPreview({say,getArticle:()=>outputDepartment==='co
 window.addEventListener('jarvis-ledger-changed',()=>{ledger=read(keys.ledger,[]);renderFinance();});
 initActivityReport({say});
 
-initQuickDraft({request,say});
+initQuickDraft({request,say,authorize:authenticate});
+
+if(sessionMode){lockSessionUI();void authenticate().catch(e=>say(e.message));}
