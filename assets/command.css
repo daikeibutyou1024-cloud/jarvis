@@ -910,3 +910,5 @@ body[data-current-page="overview"] #status { font-size:11px;line-height:1.6;max-
 
 /* Recording state is explicit on both microphone controls. */
 #mic-command[aria-pressed="true"], #orb-voice[aria-pressed="true"] { color:#ff294d; border-color:#ff294d; }
+
+#activity-dashboard form,#activity-finance form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:16px 0}#activity-dashboard article,#activity-finance article{padding:12px;border-bottom:1px solid #526172;overflow-wrap:anywhere}#activity-dashboard input,#activity-finance input,#activity-dashboard select,#activity-finance select{width:100%;box-sizing:border-box}#activity-home p,#activity-projects p{overflow-wrap:anywhere}#activity-trends meter{width:min(100%,320px)}

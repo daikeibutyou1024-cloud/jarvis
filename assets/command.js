@@ -1,3 +1,5 @@
+import {initActivityReport} from './activity-report.js';
+import {dateJST} from '../lib/activity-report.js';
 import {initMarketingPreview} from './marketing-preview.js';
 import {rejectSecrets} from "../lib/memory.js";
 import {initMemoryUI} from "./memory-ui.js";
@@ -697,7 +699,7 @@ $("save-draft").onclick = async () => {
   if(!$("output").value.trim())return say("保存する原稿がありません");
   try{
     const saved=await saveLocalDraft(localStorage,navigator.locks,keys.drafts,{
-      ...brief(),department:outputDepartment,date:new Date().toLocaleString("ja-JP"),text:$("output").value,
+      ...brief(),activityDate:dateJST(),department:outputDepartment,date:new Date().toLocaleString("ja-JP"),text:$("output").value,
       approved,generation:currentGeneration,evidence:currentEvidence,workflow:["note記事","note無料記事","note有料記事"].includes(brief().format)?editorial?.rawWorkflow():null,document:{...currentDocument},
     },localRevision);
     drafts=saved.rows;localRevision=saved.revision;editorial?.markBackup();renderDrafts();reviewLabel();say("この端末に新しい版を保存しました");
@@ -1227,3 +1229,6 @@ memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:
 },openProject:async id=>{const epoch=authEpoch;editorial.assertCanReplace();const d=await request('/api/business/editorial?projectId='+encodeURIComponent(id));if(epoch!==authEpoch)throw Error('認証状態が変わりました');openVersion(d.document);},getProject:()=>({projectId:currentDocument.projectId,revision:currentDocument.revision,text:brief().topic+' / 版'+currentDocument.revision+' / 生成状態：'+(currentGeneration?.completionStatus||'未確認')+' / 次：本文・出典・構成を確認'})});
 
 marketingPreview=initMarketingPreview({say,getArticle:()=>outputDepartment==='content'&&$('output').value.trim()?{projectId:currentDocument.projectId,title:brief().topic,article:$('output').value,evidence:currentEvidence,mock:currentGeneration?.provider==='preview-mock'}:null});
+
+window.addEventListener('jarvis-ledger-changed',()=>{ledger=read(keys.ledger,[]);renderFinance();});
+initActivityReport({say});
