@@ -1,3 +1,4 @@
+import {initMarketingPreview} from './marketing-preview.js';
 import {rejectSecrets} from "../lib/memory.js";
 import {initMemoryUI} from "./memory-ui.js";
 import {createVoiceConversation} from "./voice-conversation.js";
@@ -87,6 +88,7 @@ let page = "overview",
   busy = false,
   password = "",
   authPending = null;
+let marketingPreview;
 let currentDocument = {projectId:crypto.randomUUID(),revision:0}, localRevision = 0;
 const history = [];
 let businessStore = null;
@@ -236,6 +238,7 @@ function navigate(next) {
     $("format").disabled = page !== "content";
   }
   $("editorial-panel").hidden = page !== "content";
+  $("marketing-preview").hidden = page !== "marketing";
   $("content-generation-tools").hidden = page !== "content";
   $("content-continue-tools").hidden = page !== "content";
   $("generation-status").hidden = page !== "content";
@@ -1151,6 +1154,11 @@ $("handoff").onclick = () => {
   if (!text) return say("先に下書きを作成してください");
   const flow = Object.keys(departments);
   const next = flow[(flow.indexOf(outputDepartment) + 1) % flow.length];
+  if(outputDepartment==='content' && next==='marketing'){
+    if(marketingPreview.accept({projectId:currentDocument.projectId,title:brief().topic,article:text,evidence:currentEvidence,mock:currentGeneration?.provider==='preview-mock'})){
+      navigate('marketing');say('同じ案件IDでX・Instagram投稿案を作成しました。編集・端末保存してください。自動投稿は行いません');
+    }return;
+  }
   const memo = `【${departments[outputDepartment].name}の下書き・未検証】\n${text}`;
   $("notes").value = memo.slice(0, 2500);
   write(keys.brief, brief());
@@ -1217,3 +1225,5 @@ memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:
  const texts=[item.user,item.assistant];for(let i=history.length-1;i>=0;i--)if(texts.includes(history[i].text))history.splice(i,1);
  for(const node of $("conversation").querySelectorAll('.message'))if(texts.includes(node.lastChild?.textContent))node.remove();
 },openProject:async id=>{const epoch=authEpoch;editorial.assertCanReplace();const d=await request('/api/business/editorial?projectId='+encodeURIComponent(id));if(epoch!==authEpoch)throw Error('認証状態が変わりました');openVersion(d.document);},getProject:()=>({projectId:currentDocument.projectId,revision:currentDocument.revision,text:brief().topic+' / 版'+currentDocument.revision+' / 生成状態：'+(currentGeneration?.completionStatus||'未確認')+' / 次：本文・出典・構成を確認'})});
+
+marketingPreview=initMarketingPreview({say,getArticle:()=>outputDepartment==='content'&&$('output').value.trim()?{projectId:currentDocument.projectId,title:brief().topic,article:$('output').value,evidence:currentEvidence,mock:currentGeneration?.provider==='preview-mock'}:null});

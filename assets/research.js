@@ -120,7 +120,10 @@ export function initResearch({
       text.textContent = r.text;
       const meta = document.createElement("p");
       meta.className = "hint";
-      meta.textContent = `情報源：${sourceCatalog[r.origin]?.name || r.origin} / 取得日時：${r.fetchedAt || "未取得（手入力・AI・取り込み）"} / 記録日時：${r.recordedAt || "未取得"} / 元情報の日時：${r.publishedAt || "未取得"}`;
+      const published=Date.parse(r.publishedAt),days=Math.floor((Date.now()-published)/86400000);
+      const freshness=!Number.isFinite(published)?'公開日未確認':days<0?'公開日が未来です・要確認':days>=30?`公開から${days}日・古い情報の可能性`:`公開から${days}日`;
+
+      meta.textContent = `${freshness} / 同じ出典URLは重複登録せず更新 / 情報源：${sourceCatalog[r.origin]?.name || r.origin} / 取得日時：${r.fetchedAt || "未取得（手入力・AI・取り込み）"} / 記録日時：${r.recordedAt || "未取得"} / 元情報の日時：${r.publishedAt || "未取得"}`;
       const compare = document.createElement("p");
       compare.className = "hint";
       compare.textContent = `価格：${r.price || "未取得"} / アフィリエイト条件：${r.affiliate || "未取得"}`;
@@ -403,9 +406,10 @@ export function initResearch({
           affiliate: "アフィリエイト比較記事",
         }[plan.format];
       }
+      if(!plan){$('topic').value=chosen[0].title;$('format').value='note無料記事';}
       persistBrief();
       say(
-        "確認済み資料と企画をCONTENTへ引き継ぎました。下書き生成はAPI利用回数を消費します。",
+        "確認済み資料をCONTENTへ引き継ぎました。Previewモック生成を選ぶと有料APIは使いません。",
       );
     } catch (error) {
       say(error.message);

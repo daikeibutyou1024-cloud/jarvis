@@ -305,6 +305,15 @@
           <div class="actions"><button id="editorial-approve">この保存版の全文確認を記録</button><button id="editorial-download">確認済みの原稿を出力（Markdown）</button></div>
           <details><summary>出力した原稿を確認・コピー</summary><label for="editorial-export">全体</label><textarea id="editorial-export" readonly rows="8"></textarea><label for="editorial-free">無料部分</label><textarea id="editorial-free" readonly rows="6"></textarea><label for="editorial-paid">有料部分</label><textarea id="editorial-paid" readonly rows="6"></textarea></details>
         </section>
+        <section id="marketing-preview" class="panel" hidden>
+          <h2>MARKETING / 記事から投稿案を作成</h2>
+          <p>固定テンプレートによる投稿案です。実AI・SNS自動投稿は使いません。モック記事由来の案を完成記事の宣伝として公開しないでください。</p>
+          <p id="marketing-project"></p><button id="marketing-make" type="button">CONTENTの記事から投稿案を作成</button>
+          <label for="marketing-url">公開後のnote記事URL（任意）</label><input id="marketing-url" type="url" placeholder="https://note.com/…"><button id="marketing-update-url">URLを反映して再作成</button>
+          <label for="marketing-x">X投稿案（投稿先の文字数制限は本人が確認）</label><textarea id="marketing-x" rows="7" maxlength="2000"></textarea><button id="marketing-copy-x">X案をコピー</button>
+          <label for="marketing-instagram">Instagram投稿案</label><textarea id="marketing-instagram" rows="10" maxlength="5000"></textarea><button id="marketing-copy-instagram">Instagram案をコピー</button>
+          <button id="marketing-save">同じ案件IDで投稿案を端末保存</button><h3>保存した投稿案</h3><div id="marketing-saved" class="actions"></div>
+        </section>
         <div class="workspace-grid">
           <section class="panel">
             <h3>制作ブリーフ</h3>
