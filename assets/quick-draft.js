@@ -1,3 +1,4 @@
+import {executeAutonomousJob} from '../lib/autonomous-engine.js';
 import {recordJob,JOBS_KEY,reviseMock} from '../lib/internal-jobs.js';
 import {report} from '../lib/activity-report.js';
 import {socialDrafts} from '../lib/marketing-preview.js';
@@ -24,29 +25,22 @@ export function initQuickDraft({request,say,authorize=async()=>true}){
   if(busy)return;if(dirty&&!confirm('未保存の編集があります。業務を実行しますか？'))return;
   if(!await authorize())return;
   busy=true;lock(true);
-  const id=retryId||crypto.randomUUID();let job;
+  const id=retryId||crypto.randomUUID();
   try{
-   await navigator.locks.request('jarvis-internal-job-run',{ifAvailable:true},async lease=>{
-    if(!lease)throw Error('別タブで内部ジョブを実行中です。完了を待ってください');
-    const previous=jobRows().find(x=>x.id===id);job=await recordJob(localStorage,navigator.locks,id,{state:'running',error:null,attempt:(previous?.attempt||0)+1,stages:previous?.stages||[]});
-    const existing=read().find(p=>p.projectId===id);
-    if(existing){current=existing;stage='集計の再開';}
-    else{
-     stage='公開情報の取得';status('内部業務：公開情報を収集しています…');
-     const data=previous?.sourceData||await request('/api/research/collect?source=ollama&q=AI');
-     if(data.status!=='acquired'||!data.items?.length)throw Error(data.error||'公開情報を取得できません');
-     job=await recordJob(localStorage,navigator.locks,id,{sourceData:{status:'acquired',items:[data.items[0]]},stages:['research']});
-     const duplicate=read().find(p=>p.source.sourceUrl===data.items[0].sourceUrl&&p.source.publishedAt===data.items[0].publishedAt);
-     if(duplicate){current=structuredClone(duplicate);await recordJob(localStorage,navigator.locks,id,{state:'duplicate',packId:duplicate.projectId});render();list();status('同じ出典・公開日時の案件があるため、重複作成せず既存案件を表示しました。');return;}
-     stage='記事・SNS案の作成';current=createPack(data,id);current.revision=0;current.jobState='awaiting_approval';dirty=true;render();
-     await recordJob(localStorage,navigator.locks,id,{stages:['research','content','marketing']});
-     stage='端末への保存';await persist();
-    }
-    stage='成果・収支の整理';const snapshot=report({ledger:JSON.parse(localStorage.getItem('jarvis_business_ledger_v2')||'[]'),metrics:JSON.parse(localStorage.getItem('jarvis_project_metrics_v1')||'[]')});
-    await recordJob(localStorage,navigator.locks,id,{state:current.approvedAt?'approved':current.jobState||'awaiting_approval',packId:current.projectId,stages:['research','content','marketing','analytics','finance','approval'],summary:{finance:snapshot.month,metrics:snapshot.metrics.filter(m=>m.projectId===current.projectId),notice:'手入力・記録分。未登録は未登録。API請求は未確認。'}});
-    render();list();status('内部ジョブ完了：記事とSNS案を保存し、登録済み成果・収支を整理しました。内容確認・承認・修正依頼だけ行えます。公開はしていません。');
-   });
-  }catch(e){try{if(job)await recordJob(localStorage,navigator.locks,id,{state:'failed',error:stage+'：'+e.message});jobReport();}catch{}status(`${stage||'業務開始'}で停止しました：${e.message}。業務報告の再試行ボタンから手動で再開してください。自動再送しません。`);}
+   const labels={research:'公開情報の収集',content:'記事の作成',marketing:'SNS案の作成',analytics:'成果の整理',finance:'登録済み収支の整理',approval:'承認待ちの登録'};
+   const result=await executeAutonomousJob({id,ports:{
+    exclusive:fn=>navigator.locks.request('jarvis-internal-job-run',{ifAvailable:true},lease=>fn(!!lease)),
+    jobs:{get:async id=>jobRows().find(j=>j.id===id),update:(id,patch)=>recordJob(localStorage,navigator.locks,id,patch)},
+    packs:{get:async id=>read().find(p=>p.projectId===id),findSource:async source=>read().find(p=>p.source.sourceUrl===source.sourceUrl&&p.source.publishedAt===source.publishedAt),put:(pack,expected)=>savePack(localStorage,navigator.locks,pack,expected)},
+    research:{collect:()=>request('/api/research/collect?source=ollama&q=AI')},
+    ai:{kind:'preview-mock',build:async(data,id)=>createPack(data,id)},
+    records:{snapshot:async()=>({ledger:JSON.parse(localStorage.getItem('jarvis_business_ledger_v2')||'[]'),metrics:JSON.parse(localStorage.getItem('jarvis_project_metrics_v1')||'[]')})},
+    analysis:{summarize:async(data,projectId)=>{const snapshot=report(data);return {finance:snapshot.month,metrics:snapshot.metrics.filter(m=>m.projectId===projectId),notice:'手入力・記録分。未登録は未登録。API請求は未確認。'};}},
+    notify:async name=>{stage=labels[name]||name;status('内部業務：'+stage+'…');}
+   }});
+   current=structuredClone(result.pack);dirty=false;render();list();window.dispatchEvent(new Event('jarvis-quick-changed'));
+   status(result.state==='duplicate'?'同じ出典・公開日時の案件があるため、重複作成せず既存案件を表示しました。':'内部ジョブ完了：記事・SNS案と業務報告を保存しました。内容確認・承認・修正依頼だけ行えます。公開はしていません。');
+  }catch(e){const partial=read().find(p=>p.projectId===id);if(partial){current=partial;dirty=false;render();}try{jobReport();}catch{}status(`${stage||'業務開始'}で停止しました：${e.message}。業務報告の再試行ボタンから手動で再開してください。自動再送しません。`);}
   finally{busy=false;lock(false);}
  }
  for(const id of ['quick-article','quick-x','quick-instagram'])$(id).oninput=()=>{if(!current)return;current.article=$('quick-article').value;current.x=$('quick-x').value;current.instagram=$('quick-instagram').value;current.approvedAt=null;current.jobState='awaiting_approval';current.source.reviewedAt=null;$('quick-source-check').checked=$('quick-content-check').checked=false;dirty=true;status('未保存の編集があります。「編集を保存」を押してください。承認状態は解除しました。');};
