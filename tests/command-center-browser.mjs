@@ -1,3 +1,4 @@
+import {onRequest as cloudHandler} from '../functions/api/autonomous.js';
 import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';import {resolve,extname} from 'node:path';import {browserRuntime} from './browser-runtime.mjs';import {onRequest as session} from '../functions/api/session.js';import {onRequest as middleware} from '../functions/api/_middleware.js';import {onRequestGet as collect} from '../functions/api/research/collect.js';
 const origin='https://feature-ai-business-rebuild.asset-simulator-87y.pages.dev',secret='local-session-test-only',env={CF_PAGES_BRANCH:'feature/ai-business-rebuild',JARVIS_ACCESS_PASSWORD:secret,get JARVIS_DB(){throw Error('DB forbidden');}};const nativeFetch=globalThis.fetch;let upstream=0,loginCount=0,fail=false;
 globalThis.fetch=async url=>{assert.equal(url,'https://github.com/ollama/ollama/releases.atom');upstream++;if(fail)throw Error('offline');return new Response('<feed><entry><title>AI公式資料</title><link href="https://github.com/ollama/ollama/releases/tag/v1"/><published>2026-11-15T00:00:00Z</published><content>公開配信の要点</content></entry></feed>',{headers:{'content-type':'application/atom+xml'}});};
@@ -5,6 +6,7 @@ let browser;try{const rt=await browserRuntime();browser=await rt.playwright.chro
  await context.route('**/*',async route=>{const req=route.request(),u=new URL(req.url());if(u.origin!==origin)return route.abort();try{if(u.pathname.startsWith('/api/')){
   const headers=await req.allHeaders();const request=new Request(req.url(),{method:req.method(),headers,...(!['GET','HEAD'].includes(req.method())?{body:req.postData()}: {})});let response;
   if(u.pathname==='/api/session'){if(req.method()==='POST')loginCount++;response=await session({request,env});}
+  else if(u.pathname==='/api/autonomous')response=await cloudHandler({request,env});
   else{assert.equal(u.pathname,'/api/research/collect');response=await middleware({request,env,next:r=>collect({request:r||request,env})});}
   return route.fulfill({status:response.status,headers:Object.fromEntries(response.headers),body:await response.text()});
  }const path=resolve('.', '.'+(u.pathname==='/'?'/index.html':u.pathname));assert.ok(path.startsWith(resolve('.')+'/'));return route.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.css':'text/css'})[extname(path)]||'text/plain',body:await readFile(path)});}catch(e){console.error(e.message);return route.fulfill({status:500,body:'{}'});}});

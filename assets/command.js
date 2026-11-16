@@ -110,7 +110,7 @@ const sessionMode=location.protocol==='https:'&&/^(?:[a-f0-9]{8}|feature-ai-busi
 let sessionReady=false,sessionGate=null,sessionExpiryTimer=null;
 function unlockSessionUI(expiresAt){
   clearTimeout(sessionExpiryTimer);if(!Number.isFinite(expiresAt)||expiresAt<=Date.now())return;
-  document.querySelector('main').inert=false;sessionGate?.remove();sessionGate=null;
+  const reopened=!!sessionGate;document.querySelector('main').inert=false;sessionGate?.remove();sessionGate=null;if(reopened)window.dispatchEvent(new Event('jarvis-session-ready'));
   sessionExpiryTimer=setTimeout(()=>{sessionReady=false;voiceConversation?.stop('セッション期限切れのため停止しました');lockSessionUI();},expiresAt-Date.now());
 }
 function lockSessionUI(){
@@ -1253,6 +1253,6 @@ marketingPreview=initMarketingPreview({say,getArticle:()=>outputDepartment==='co
 window.addEventListener('jarvis-ledger-changed',()=>{ledger=read(keys.ledger,[]);renderFinance();});
 initActivityReport({say});
 
-initQuickDraft({request,say,authorize:authenticate});
+initQuickDraft({request,say,authorize:authenticate,cloudSession:sessionMode});
 
 if(sessionMode){lockSessionUI();void authenticate().catch(e=>say(e.message));}
