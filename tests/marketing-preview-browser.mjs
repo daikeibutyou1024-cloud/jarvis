@@ -29,6 +29,7 @@ try{
  await page.locator('#output').fill((await page.locator('#output').inputValue())+'\n人間が編集・確認しました。');await page.locator('#approve').click();await page.locator('#save-draft').click();
  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('jarvis_business_drafts_v1')||'[]').length===1);
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('jarvis_business_drafts_v1'))[0]);assert.match(saved.text,/人間が編集/);assert.equal(saved.approved,true);assert.equal(calls,1);assert.deepEqual(errors,[]);
+ await page.locator('#copy').click();await page.waitForFunction(()=>window.copiedText?.includes('## 出典'));assert.ok(!(await page.evaluate(()=>window.copiedText)).includes('【RESEARCH 3.0 引き継ぎ資料】'));assert.match(await page.evaluate(()=>window.copiedText),/公開：2026-11-09/);
  await page.locator('#handoff').click();await page.waitForSelector('#marketing-preview:not([hidden])');
  assert.match(await page.locator('#marketing-project').innerText(),new RegExp(saved.document.projectId));
  assert.match(await page.locator('#marketing-x').inputValue(),/モック/);assert.match(await page.locator('#marketing-instagram').inputValue(),/#AI活用/);

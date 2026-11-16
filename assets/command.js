@@ -634,10 +634,11 @@ $("copy").onclick = async () => {
   refreshPaid(true);
   reviewLabel();
   try {
-    await navigator.clipboard.writeText($("output").value);
-    say("原稿をコピーしました");
+    await navigator.clipboard.writeText(outputDepartment==="content"?articleBody($("output").value):$("output").value);
+    say("記事本文をコピーしました。内部の引き渡し資料は除外し、保存データは保持しています。公開前に内容・出典を確認してください");
   } catch {
-    say("コピーできません。原稿を選択してコピーしてください。");
+    const output=$('output');output.focus();output.setSelectionRange(0,(outputDepartment==='content'?articleBody(output.value):output.value).length);
+    say("本文を選択しました。端末のコピー操作を使ってください。保存データは変更していません。");
   }
 };
 function renderDrafts() {
