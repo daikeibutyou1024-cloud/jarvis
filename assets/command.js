@@ -1166,18 +1166,19 @@ voiceConversation=createVoiceConversation({
  isBusy:()=>busy,isHidden:()=>document.hidden||page!=="overview",
  onTranscript:text=>{voiceTranscript=text;$("command").value=text;},
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{if(state==="paused")coreState.error();$("voice-conversation-status").textContent=text;$("voice-start").textContent=state==="paused"?"音声対話を再開":"音声対話開始";$("voice-start").disabled=!["stopped","paused"].includes(state);$("voice-stop").disabled=["stopped","paused"].includes(state);$("voice-status").textContent=text;}
+ onState:(state,text)=>{if(state==="paused")coreState.error();$("voice-conversation-status").textContent=text;$("voice-start").textContent=state==="paused"?"音声対話を再開":"音声対話開始";$("voice-start").disabled=!["stopped","paused"].includes(state);$("voice-stop").disabled=["stopped","paused"].includes(state);$("voice-status").textContent=text;const active=!["stopped","paused"].includes(state);$("orb-voice").setAttribute("aria-pressed",String(active));$("orb-voice").setAttribute("aria-label",active?"球体を押して音声対話を終了":"球体を押して音声対話を開始");}
 });
-$("voice-start").onclick=()=>{
+function startVoiceConversation(){
  if(busy)return say("処理終了後に開始してください");
  if($("command").value.trim() && $("command").value!==voiceTranscript)return say("入力中の文章を先に送信または退避してください。音声で上書きしません。");
  stopDictation();
  $("speak").checked=true;void voiceConversation.start();
-};
+}
+$("voice-start").onclick=startVoiceConversation;
 $("voice-stop").onclick=()=>voiceConversation.stop();
 document.addEventListener("visibilitychange",()=>{if(document.hidden){stopDictation();if(voiceConversation.active)voiceConversation.stop("画面が非表示になったため停止しました。戻ったら再開してください");}});
 window.addEventListener("pagehide",()=>{stopDictation();voiceConversation.stop();});
-$("orb-voice").onclick = voice;
+$("orb-voice").onclick = () => voiceConversation.active ? voiceConversation.stop() : startVoiceConversation();
 $("mic-command").onclick = voice;
 renderDrafts();
 renderMetrics();
