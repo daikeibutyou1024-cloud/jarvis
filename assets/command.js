@@ -111,7 +111,7 @@ try {
   $("storage-status").textContent = "利用できません";
 }
 const SESSION='__jarvis_cookie_session__';
-const sessionMode=location.protocol==='https:'&&/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname);
+const sessionMode=location.protocol==='https:'&&/^(?:(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.)?asset-simulator-87y\.pages\.dev$/.test(location.hostname);
 let sessionReady=false,sessionGate=null,sessionExpiryTimer=null;
 function unlockSessionUI(expiresAt){
   clearTimeout(sessionExpiryTimer);if(!Number.isFinite(expiresAt)||expiresAt<=Date.now())return;
@@ -122,8 +122,17 @@ function lockSessionUI(){
  if(!sessionMode)return;document.querySelector('main').inert=true;
  if(sessionGate)return;sessionGate=document.createElement('section');sessionGate.className='session-gate';const p=document.createElement('p'),b=document.createElement('button');p.textContent='管理者ログインが必要です。保存した端末データは削除しません。';b.textContent='ログインする';b.onclick=()=>authenticate().catch(e=>say(e.message));sessionGate.append(p,b);document.body.append(sessionGate);
 }
+function applySessionCapabilities(data){
+ if(data.environment!=='production')return;
+ document.documentElement.dataset.environment='production';
+ const badge=document.querySelector('header .badge');if(badge)badge.textContent='PRODUCTION / 手動運用';
+ for(const id of ['chat-preview-mock','content-preview-mock']){const e=$(id);if(e){e.checked=false;e.disabled=true;e.closest('label').hidden=true;}}
+ for(const id of ['quick-create','job-apply-request']){const e=$(id);if(e){e.disabled=true;e.title='本番のモック生成は停止しています。手動編集・保存を利用してください';}}
+ $('ai-status').textContent='実AI停止中 / 費用確認待ち';
+ const note=document.querySelector('.home-report-body > p');if(note)note.textContent='手動保存・承認・履歴を利用できます。実AI・モック生成・定期実行・自動投稿は停止しています。';
+}
 async function authenticate() {
-  if(sessionMode&&!authPending){try{const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});const d=await r.json();sessionReady=r.ok&&d.authenticated===true;if(sessionReady)unlockSessionUI(Date.now()+d.expiresInSeconds*1000);else lockSessionUI();}catch{throw Error('ログイン状態を確認できません。通信を確認して再試行してください');}}
+  if(sessionMode&&!authPending){try{const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});const d=await r.json();sessionReady=r.ok&&d.authenticated===true;applySessionCapabilities(d);if(sessionReady)unlockSessionUI(Date.now()+d.expiresInSeconds*1000);else lockSessionUI();}catch{throw Error('ログイン状態を確認できません。通信を確認して再試行してください');}}
   if(sessionMode&&sessionReady)return SESSION;
   if (password) return Promise.resolve(password);
   if (authPending) return authPending;
@@ -145,7 +154,7 @@ async function authenticate() {
       if(!sessionMode){password=$('password').value;finish(password);return;}
       if(submitting)return;submitting=true;
       const secret=$('password').value;$('password').value='';
-      try{const r=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'x-jarvis-password':secret}});if(!r.ok){say('パスワードを確認して再入力してください');return;}const d=await r.json();sessionReady=true;unlockSessionUI(Date.now()+d.expiresInSeconds*1000);password='';finish(SESSION);}catch{say('ログインに失敗しました。通信を確認してください');}finally{submitting=false;}
+      try{const r=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'x-jarvis-password':secret}});if(!r.ok){say('パスワードを確認して再入力してください');return;}const d=await r.json();sessionReady=true;applySessionCapabilities(d);unlockSessionUI(Date.now()+d.expiresInSeconds*1000);password='';finish(SESSION);}catch{say('ログインに失敗しました。通信を確認してください');}finally{submitting=false;}
     };
     const cancel = (e) => {
       e?.preventDefault();

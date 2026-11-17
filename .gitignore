@@ -3,3 +3,6 @@
 .env*
 node_modules/
 work/
+
+__pycache__/
+*.pyc

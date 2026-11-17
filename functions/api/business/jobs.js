@@ -54,8 +54,8 @@ export async function onRequestGet({ request, env }) {
   if (denied) return denied;
   if (!env.JARVIS_DB) return json({ error: "D1未接続" }, 503);
   try {
-    await recoverJobs(env.JARVIS_DB);
-    await metadataTable(env.JARVIS_DB);
+    // Production status reads must never reclassify existing jobs or initialize schema.
+    if(env.CF_PAGES_BRANCH!=='main'){await recoverJobs(env.JARVIS_DB);await metadataTable(env.JARVIS_DB);}
     const result = await env.JARVIS_DB.prepare(
       "SELECT b.id,b.job_type,b.topic,b.status,b.output,b.error,b.created_at,b.updated_at,g.generation_json FROM business_jobs b LEFT JOIN business_job_generations g ON g.job_id=b.id ORDER BY b.created_at DESC LIMIT 20",
     ).all();

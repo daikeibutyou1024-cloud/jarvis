@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="/assets/command.css" />
     <link rel="stylesheet" href="/assets/orb.css" />
     <script type="module" src="/assets/command.js"></script>
+    <script type="module" src="/assets/weather.js"></script>
+    <link rel="stylesheet" href="/assets/weather.css">
   </head>
   <body>
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="メニューを開く" aria-controls="main-menu" aria-expanded="false">☰ <span>MENU</span></button>
@@ -99,6 +101,10 @@
           </section>
           <div id="home-command" class="hud-panel"><span class="command-caption">VOICE COMMAND</span><details id="manual-input"><summary>手動入力・送信を開く</summary></details><div id="voice-options"></div></div>
         </div>
+        <section id="home-weather" class="weather-compact hud-panel" aria-label="天気・時間別予報・雨雲レーダー">
+          <div class="weather-heading"><h2>WEATHER <span id="weather-current">取得中</span></h2><small id="weather-status" role="status"></small><button id="weather-refresh" type="button">更新</button></div>
+          <details id="weather-details"><summary>時間別予報・雨雲レーダー</summary><div id="weather-hourly" class="weather-hourly"></div><details id="weather-radar"><summary>雨雲レーダーを表示</summary><div class="radar-tile"><img id="radar-base" alt="既存設定地域の地図"><img id="radar-rain" alt="最新の雨雲"></div><p id="radar-status" role="status">開いたときだけ取得します。</p><small>© OpenStreetMap contributors / Weather data by RainViewer</small><button id="radar-refresh" type="button">レーダー更新</button></details></details>
+        </section>
         <div class="home-summary-grid">
         <section id="quick-draft" class="panel">
           <h2>今日の業務報告</h2><p id="home-job-stats" class="home-summary-stat" aria-live="polite">業務状況を読み込み中</p><details id="home-report-details"><summary>詳細・承認・下書きを開く</summary><div class="home-report-body"><p>内部処理はPreviewモックです。今回は本人の手動起動のみ。定期実行・実AI・予約投稿は開始しません。</p><div id="job-report" aria-live="polite"></div><div class="actions"><button id="job-review">内容を確認する</button><button id="job-approve">承認する</button><button id="job-request">AIに修正を依頼する</button></div><details id="engine-operations"><summary>内部ジョブの詳細・手動作成</summary><p>公式情報1件から編集用の下書きを作成します。Previewモックのみ・実AI不使用。資料の真偽は未確認のままです。本人が押した時だけ動き、自動公開しません。</p>

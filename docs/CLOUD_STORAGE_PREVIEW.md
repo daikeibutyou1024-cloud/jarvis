@@ -1,5 +1,7 @@
 # Previewクラウド保存の実装・反映手順
 
+本番移行準備の最新仕様は [PRODUCTION_RELEASE.md](PRODUCTION_RELEASE.md) を優先する。本番は固定の承認済み設定・DB識別行が必要で、現在は未適用。Productionのモック起動・モック修正は常に拒否する。
+
 2026-11-17（日本時間）。対象ブランチ `feature/ai-business-rebuild`、基準 `8630ed9`。
 
 ## 現在の状態（2026-11-17 更新）
