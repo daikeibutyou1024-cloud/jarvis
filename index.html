@@ -46,16 +46,6 @@
         <span class="badge">DEVELOPMENT / 本番未反映</span>
       </header>
       <section id="overview" class="page">
-        <section id="quick-draft" class="panel">
-          <h2>AI副業司令室 / 今日の業務報告</h2><p>内部処理はPreviewモックです。今回は本人の手動起動のみ。定期実行・実AI・予約投稿は開始しません。</p><div id="job-report" aria-live="polite"></div><div class="actions"><button id="job-review">内容を確認する</button><button id="job-approve">承認する</button><button id="job-request">AIに修正を依頼する</button></div><details id="engine-operations"><summary>内部ジョブの詳細・手動作成</summary><p>公式情報1件から編集用の下書きを作成します。Previewモックのみ・実AI不使用。資料の真偽は未確認のままです。本人が押した時だけ動き、自動公開しません。</p>
-          <button id="quick-create" type="button" class="primary">記事とSNS案をまとめて作成</button><button id="autonomous-refresh" type="button">クラウド状態を再取得（編集は保持）</button><button id="autonomous-compare" type="button">移行前の件数・版・ハッシュ照合（転送しない）</button><pre id="autonomous-comparison"></pre></details><p id="quick-status" role="status">初回認証後は8時間の安全なセッションを利用します。作成した結果はこの端末・URLに保存します。</p>
-          <div id="quick-result" hidden><details><summary>クラウドの版・承認履歴（参照のみ）</summary><button id="autonomous-history" type="button">履歴を取得</button><div id="autonomous-history-list"></div><textarea id="autonomous-old-version" readonly rows="8" aria-label="クラウドの過去版（参照のみ）"></textarea></details><p id="quick-project"></p><p id="quick-source"></p><label>note記事の下書き<textarea id="quick-article" rows="15" maxlength="60000"></textarea></label><button id="quick-copy-article">記事をコピー</button>
-          <label>X投稿案<textarea id="quick-x" rows="6" maxlength="2000"></textarea></label><button id="quick-copy-x">X案をコピー</button><label>Instagram投稿案<textarea id="quick-instagram" rows="9" maxlength="5000"></textarea></label><button id="quick-copy-instagram">Instagram案をコピー</button>
-          <p>記事URLは公開後に本人が追加してください。投稿先の文字数・リンクの表示・必要なPR表記も確認してください。</p>
-          <details id="job-revision-panel" hidden open><summary>修正依頼・差し戻し</summary><p>モックで自動反映できるのは「タイトル：新しい題名」「追記：追加する文章」です。それ以外は依頼を保存し、手動編集または将来の実AI対応を待ちます。反映後は必ず再承認が必要です。</p><textarea id="job-instruction" rows="3" maxlength="1000" placeholder="タイトル：初心者向けAI活用入門"></textarea><button id="job-apply-request">依頼を保存・モックで修正</button><button id="job-reject">差し戻す（公開しない）</button><pre id="job-revision-history"></pre></details><button id="quick-save">編集を保存</button><label><input type="checkbox" id="quick-source-check">出典の全文・日付・利用条件を本人が確認した</label><label><input type="checkbox" id="quick-content-check">記事と両投稿案の事実・表現・引用を本人が確認した</label><button id="quick-approve">確認・承認して保存（公開しない）</button></div>
-          <h3>保存した一括下書き</h3><div id="quick-saved" class="actions"></div>
-        </section>
-        <section id="activity-home" class="panel" aria-live="polite"></section>
         <div class="command-center">
           <aside class="hud-system hud-panel" aria-label="SYSTEM STATUS">
             <h2>SYSTEM STATUS <span class="hud-dot"></span></h2>
@@ -108,6 +98,21 @@
             </details>
           </section>
           <div id="home-command" class="hud-panel"><span class="command-caption">VOICE COMMAND</span><details id="manual-input"><summary>手動入力・送信を開く</summary></details><div id="voice-options"></div></div>
+        </div>
+        <div class="home-summary-grid">
+        <section id="quick-draft" class="panel">
+          <h2>今日の業務報告</h2><p id="home-job-stats" class="home-summary-stat" aria-live="polite">業務状況を読み込み中</p><details id="home-report-details"><summary>詳細・承認・下書きを開く</summary><div class="home-report-body"><p>内部処理はPreviewモックです。今回は本人の手動起動のみ。定期実行・実AI・予約投稿は開始しません。</p><div id="job-report" aria-live="polite"></div><div class="actions"><button id="job-review">内容を確認する</button><button id="job-approve">承認する</button><button id="job-request">AIに修正を依頼する</button></div><details id="engine-operations"><summary>内部ジョブの詳細・手動作成</summary><p>公式情報1件から編集用の下書きを作成します。Previewモックのみ・実AI不使用。資料の真偽は未確認のままです。本人が押した時だけ動き、自動公開しません。</p>
+          <button id="quick-create" type="button" class="primary">記事とSNS案をまとめて作成</button><button id="autonomous-refresh" type="button">クラウド状態を再取得（編集は保持）</button><button id="autonomous-compare" type="button">移行前の件数・版・ハッシュ照合（転送しない）</button><pre id="autonomous-comparison"></pre></details><p id="quick-status" role="status">初回認証後は8時間の安全なセッションを利用します。作成した結果はこの端末・URLに保存します。</p>
+          <div id="quick-result" hidden><details><summary>クラウドの版・承認履歴（参照のみ）</summary><button id="autonomous-history" type="button">履歴を取得</button><div id="autonomous-history-list"></div><textarea id="autonomous-old-version" readonly rows="8" aria-label="クラウドの過去版（参照のみ）"></textarea></details><p id="quick-project"></p><p id="quick-source"></p><label>note記事の下書き<textarea id="quick-article" rows="15" maxlength="60000"></textarea></label><button id="quick-copy-article">記事をコピー</button>
+          <label>X投稿案<textarea id="quick-x" rows="6" maxlength="2000"></textarea></label><button id="quick-copy-x">X案をコピー</button><label>Instagram投稿案<textarea id="quick-instagram" rows="9" maxlength="5000"></textarea></label><button id="quick-copy-instagram">Instagram案をコピー</button>
+          <p>記事URLは公開後に本人が追加してください。投稿先の文字数・リンクの表示・必要なPR表記も確認してください。</p>
+          <details id="job-revision-panel" hidden open><summary>修正依頼・差し戻し</summary><p>モックで自動反映できるのは「タイトル：新しい題名」「追記：追加する文章」です。それ以外は依頼を保存し、手動編集または将来の実AI対応を待ちます。反映後は必ず再承認が必要です。</p><textarea id="job-instruction" rows="3" maxlength="1000" placeholder="タイトル：初心者向けAI活用入門"></textarea><button id="job-apply-request">依頼を保存・モックで修正</button><button id="job-reject">差し戻す（公開しない）</button><pre id="job-revision-history"></pre></details><button id="quick-save">編集を保存</button><label><input type="checkbox" id="quick-source-check">出典の全文・日付・利用条件を本人が確認した</label><label><input type="checkbox" id="quick-content-check">記事と両投稿案の事実・表現・引用を本人が確認した</label><button id="quick-approve">確認・承認して保存（公開しない）</button></div>
+          <h3>保存した一括下書き</h3><div id="quick-saved" class="actions"></div>
+          </div></details>
+        </section>
+          <details id="home-activity-details" class="panel"><summary>副業レポート・収益を確認</summary>
+            <section id="activity-home" class="panel" aria-live="polite"></section>
+          </details>
         </div>
         <div class="section-heading overview-extra">
           <h2>OPERATIONS / 部門一覧</h2>
@@ -633,7 +638,7 @@
         <span>公開・購入・自動投稿は実行しません</span>
       </footer>
     </main>
-    <div id="status" role="status" aria-live="polite">司令室を起動しました</div>
+    <div id="status" role="status" aria-live="polite" hidden></div>
     <dialog id="auth-dialog">
       <form id="auth-form">
         <p class="eyebrow">WORKSPACE ACCESS</p>
