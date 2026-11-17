@@ -10,8 +10,8 @@ export async function onRequestPost({request,env}){
   const b=JSON.parse(raw),text=b.message,history=b.conversation;
   if(typeof text!=='string'||!text.trim()||text.length>2000||!Array.isArray(history)||history.length>8||history.some(r=>!['user','assistant'].includes(r?.role)||typeof r.text!=='string'||r.text.length>2000))return json({error:'会話の形式を確認してください'},400);
   if([text,...history.map(r=>r.text)].some(t=>t.includes(env.JARVIS_ACCESS_PASSWORD)))return json({error:'認証情報を会話に含めないでください'},400);
-  const previous=history.filter(r=>r.role==='user').at(-1)?.text;
-  const answer='【Previewモック】'+(/こんにちは|おはよう|こんばんは/.test(text)?'こんにちは。J.A.R.V.I.S.です。':'「'+text.slice(0,100)+'」ですね。')+(previous?' 前の「'+previous.slice(0,60)+'」という相談を引き継いでいます。':'')+' 次は何を相談しますか。実AIは使用していません。';
+  const greeting=/^(?:こんにちは|おはよう(?:ございます)?|こんばんは)[！!。\s]*$/u.test(text.trim());
+  const answer='【Previewモック】'+(greeting?'こんにちは！今日は何をお手伝いしましょうか？':'「'+text.slice(0,100)+'」を受け付けました。')+'（動作確認用の回答です。実AIは使用していません。）';
   return json({answer,mock:true,realCostUSD:0});
  }catch{return json({error:'会話データを読み取れませんでした'},400);}
 }
