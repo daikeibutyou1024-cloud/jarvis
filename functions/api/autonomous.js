@@ -9,7 +9,7 @@ async function boundedJSON(request){
  try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>256000){await reader.cancel();throw fault('リクエスト上限を超えています',413);}text+=decoder.decode(value,{stream:true});}text+=decoder.decode();return JSON.parse(text);}catch(e){if(e.status)throw e;throw fault('操作内容の形式が不正です');}finally{reader.releaseLock();}
 }
 // Factory injects mock collection/storage only for offline tests. The routed export always
-// uses the committed false switch: a request/header/env flag cannot activate production code.
+// uses the committed switch; branch/host checks always reject Production.
 export function createCloudHandler({enabled=CLOUD_STORAGE_ENABLED,collect=({request})=>candidateResponse(request,'ollama','AI'),clock}={}){
  return async function({request,env}){
   if(!previewHost(request,env))return json({error:'対象Preview専用です'},403);
