@@ -72,7 +72,7 @@
             <button
               id="orb-voice"
               class="orb-wrap"
-              aria-label="球体を押して音声入力"
+              aria-label="球体を押して音声対話を開始"
               aria-pressed="false"
             >
               <span class="core-particles" aria-hidden="true"></span><span class="orb-halo" aria-hidden="true"></span><span class="orb-ring"></span
@@ -80,7 +80,7 @@
               ><span class="orb-ring-three"></span><span class="orb-ticks" aria-hidden="true"></span><span class="orb-segments" aria-hidden="true"></span><span class="orb"></span>
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
-            <p id="voice-status" role="status">音声入力は球体をタップ</p>
+            <p id="voice-status" role="status">球体をタップして自動音声対話を開始</p>
           </div>
 
           </div>
@@ -534,7 +534,7 @@
           <label><input id="chat-preview-mock" type="checkbox" checked>Previewモック回答（実AI・DB利用なし）</label>
           <button id="voice-start" type="button">音声対話開始</button><button id="voice-stop" type="button" disabled>音声対話終了</button>
           <p id="voice-conversation-status" role="status">開始後は発話の終わりに自動送信し、回答を読み上げて再び待ち受けます。現在はPreviewモック回答です。ブラウザの音声認識は音声をブラウザ提供元へ送る場合があります。iPhoneは画面を開いたまま使用し、自動再開できない場合は「音声対話を再開」をタップしてください。</p>
-          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。球体・◎は従来の文字起こし。音声対話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
+          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。青い球体は自動音声対話の開始・終了、◎は従来の文字起こしです。音声対話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
         </div>
         <form id="chat-form" class="command-row">
           <button
