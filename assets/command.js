@@ -41,9 +41,14 @@ import {
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
 let prototypeFlow=null, voiceConversation=null, voiceSpeechCancel=null;
+let statusDismissTimer = null;
 const $ = (id) => document.getElementById(id),
   say = (message) => {
-    $("status").textContent = message;
+    const notice = $("status");
+    notice.textContent = message;
+    notice.hidden = false;
+    clearTimeout(statusDismissTimer);
+    statusDismissTimer = setTimeout(() => { notice.hidden = true; }, 4500);
     prototypeFlow?.refresh();
   };
 initHomeCenter();
