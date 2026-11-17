@@ -1,4 +1,4 @@
-import {CLOUD_STORAGE_ENABLED} from '../../config/cloud-storage.js';
+import {CLOUD_STORAGE_ENABLED,CLOUD_STORAGE_DISABLED_REASON} from '../../config/cloud-storage.js';
 import {previewHost,validSession} from '../../lib/preview-session.js';
 import {cloudStore,ownerScope,rejectSecrets,identifier,fault} from '../../lib/cloud-store.js';
 import {candidateResponse} from './research/collect.js';
@@ -17,7 +17,7 @@ export function createCloudHandler({enabled=CLOUD_STORAGE_ENABLED,collect=({requ
   const u=new URL(request.url),origin=request.headers.get('origin'),site=request.headers.get('sec-fetch-site');
   if((origin&&origin!==u.origin)||(site&&!['same-origin','none'].includes(site))||(request.method!=='GET'&&origin!==u.origin))return json({error:'同一オリジンから操作してください'},403);
   if(!['GET','POST'].includes(request.method))return json({error:'許可されていない操作です'},405);
-  if(!enabled)return json({enabled:false,reason:'料金・使用量の確認とPreview専用マイグレーションが未完了です。端末データは保持します。'});
+  if(!enabled)return json({enabled:false,reason:CLOUD_STORAGE_DISABLED_REASON});
   try{
    if(!env.CF_PAGES_URL||!previewHost(new Request(env.CF_PAGES_URL),env)||env.PREVIEW_MOCK_AUTOMATION_ENABLED!=='false')throw fault('Previewの実行環境・停止フラグを確認できません',503);
    const store=cloudStore(env.JARVIS_DB,await ownerScope(env),{...(clock?{now:clock}:{})});await store.binding();
