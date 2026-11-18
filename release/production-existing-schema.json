@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "source": "Production schema definitions confirmed by read-only metadata inspection on 2026-11-18; no business row content",
+  "objects": [
+    {
+      "type": "index",
+      "name": "idx_ai_usage_created",
+      "tbl_name": "ai_usage",
+      "sql": "CREATE INDEX idx_ai_usage_created ON ai_usage(created_at)"
+    },
+    {
+      "type": "index",
+      "name": "idx_business_jobs_created",
+      "tbl_name": "business_jobs",
+      "sql": "CREATE INDEX idx_business_jobs_created ON business_jobs(created_at DESC)"
+    },
+    {
+      "type": "index",
+      "name": "idx_research_requests_time",
+      "tbl_name": "research_requests",
+      "sql": "CREATE INDEX idx_research_requests_time ON research_requests(attempted_at)"
+    },
+    {
+      "type": "table",
+      "name": "ai_usage",
+      "tbl_name": "ai_usage",
+      "sql": "CREATE TABLE ai_usage (id TEXT PRIMARY KEY, purpose TEXT NOT NULL, created_at INTEGER NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "business_jobs",
+      "tbl_name": "business_jobs",
+      "sql": "CREATE TABLE business_jobs (  id TEXT PRIMARY KEY,  job_type TEXT NOT NULL,  topic TEXT NOT NULL,  status TEXT NOT NULL CHECK(status IN ('pending','running','draft','failed')),  output TEXT,  error TEXT,  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP )"
+    },
+    {
+      "type": "table",
+      "name": "google_oauth_states",
+      "tbl_name": "google_oauth_states",
+      "sql": "CREATE TABLE google_oauth_states (   state TEXT PRIMARY KEY,   created_at INTEGER NOT NULL,   expires_at INTEGER NOT NULL )"
+    },
+    {
+      "type": "table",
+      "name": "google_tokens",
+      "tbl_name": "google_tokens",
+      "sql": "CREATE TABLE google_tokens (   id INTEGER PRIMARY KEY CHECK (id = 1),   encrypted_refresh_token TEXT NOT NULL,   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP )"
+    },
+    {
+      "type": "table",
+      "name": "research_cache",
+      "tbl_name": "research_cache",
+      "sql": "CREATE TABLE research_cache (key TEXT PRIMARY KEY, payload TEXT NOT NULL, expires_at INTEGER NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "research_plans",
+      "tbl_name": "research_plans",
+      "sql": "CREATE TABLE research_plans (id TEXT PRIMARY KEY, topic TEXT NOT NULL, payload TEXT NOT NULL, created_at INTEGER NOT NULL)"
+    },
+    {
+      "type": "table",
+      "name": "research_requests",
+      "tbl_name": "research_requests",
+      "sql": "CREATE TABLE research_requests (id TEXT PRIMARY KEY, source TEXT NOT NULL, attempted_at INTEGER NOT NULL)"
+    }
+  ]
+}
