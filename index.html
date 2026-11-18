@@ -73,7 +73,7 @@
             <button
               id="orb-voice"
               class="orb-wrap"
-              aria-label="球体を押して音声入力を開始"
+              aria-label="球体を押して音声会話を開始"
               aria-pressed="false"
             >
               <span class="core-particles" aria-hidden="true"></span><span class="orb-halo" aria-hidden="true"></span><span class="orb-ring"></span
@@ -81,9 +81,10 @@
               ><span class="orb-ring-three"></span><span class="orb-ticks" aria-hidden="true"></span><span class="orb-segments" aria-hidden="true"></span><span class="orb"></span>
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
-            <p id="voice-status" role="status">タップして音声入力。約3秒の無音で停止・自動送信なし</p>
+            <p id="voice-status" role="status">オーブ：音声会話を開始（Previewモック）</p>
+            <button id="welcome-start" type="button" hidden>J.A.R.V.I.S.を起動</button><p id="welcome-status" role="status"></p>
             <details id="manual-input"><summary>文字で入力する</summary></details>
-            <details id="voice-settings"><summary>音声・読み上げ設定</summary><div id="voice-options"></div></details>
+            <details id="voice-settings"><summary>音声・読み上げ設定</summary><div id="voice-options"><label class="check"><input id="welcome-conversation" type="checkbox">起動の挨拶後に音声会話を開始（Previewモック）</label></div></details>
           </div>
 
           </div>
@@ -536,8 +537,8 @@
         <div id="voice-conversation-controls" class="actions">
           <label><input id="chat-preview-mock" type="checkbox" checked>Previewモック回答（実AI・DB利用なし）</label>
           <button id="voice-start" type="button" hidden>音声対話開始</button><button id="voice-stop" type="button" hidden disabled>音声対話終了</button>
-          <p id="voice-conversation-status" role="status">約3秒の無音で音声入力を停止し、文章を入力欄に残します。送信ボタンを押すまで送信しません。音声認識はブラウザ提供元へ音声を送る場合があります。iPhoneでは画面を開いたまま使用してください。</p>
-          <p class="hint">オーブと入力欄の◎は同じ音声入力です。もう一度タップすると停止します。入力済みの文章は残し、音声を追記します。送信には既存の認証が必要です。</p>
+          <p id="voice-conversation-status" role="status">オーブは約3秒の無音で発話を確定し、Previewモックへ自動送信します。回答読み上げ後に待ち受けます。入力欄の◎は文字起こしのみで、自動送信しません。実AIは停止中です。音声認識はブラウザ提供元へ音声を送る場合があります。</p>
+          <p class="hint">オーブを再タップすると会話を停止します。Safariで音声やマイクが再開できない場合も、再タップしてください。入力欄の◎は既存の文章へ追記します。</p>
         </div>
         <form id="chat-form" class="command-row">
           <button

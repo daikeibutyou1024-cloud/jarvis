@@ -4,7 +4,8 @@ import {dateJST} from '../lib/activity-report.js';
 import {initMarketingPreview} from './marketing-preview.js';
 import {rejectSecrets} from "../lib/memory.js";
 import {initMemoryUI} from "./memory-ui.js";
-import {createVoiceInput} from "./voice-input.js";
+import {createVoiceSession} from "./voice-session.js";
+import {createSpeechOutput,createWelcome} from "./speech-output.js";
 import {initPrototypeFlow} from "./prototype-flow.js";
 import {initHomeCenter} from "./home-center.js";
 import {initCoreState} from "./core-state.js";
@@ -40,7 +41,7 @@ import {
   financeTotals,
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
-let prototypeFlow=null, voiceConversation=null, voiceSpeechCancel=null;
+let prototypeFlow=null, voiceConversation=null;
 let statusDismissTimer = null;
 const $ = (id) => document.getElementById(id),
   say = (message) => {
@@ -978,40 +979,13 @@ function message(role, text) {
   root.append(p);
   root.scrollTop = root.scrollHeight;
 }
-function speak(text) {
-  if (!$("speak").checked) return;
-  if (!("speechSynthesis" in window))
-    return say("このブラウザは読み上げに対応していません");
-  coreState.stopSpeech();
-  speechSynthesis.cancel();
-  // Keep emoji and formatting visible in chat, but omit them from spoken output.
-  const spoken = spokenText(text);
-  if (!spoken) return;
-  const speech = new SpeechSynthesisUtterance(spoken);
-  speech.lang = "ja-JP";
-  coreState.trackSpeech(speech);
-  speechSynthesis.speak(speech);
-}
-// Free, local-only welcome greeting. Mobile Safari may require a tap to unlock audio.
-const welcomeText = "おかえりなさい。J.A.R.V.I.S.です。今日もよろしくお願いします。";
-function playWelcome() {
-  if (!("speechSynthesis" in window)) {
-    say("このブラウザでは音声読み上げが利用できません");
-    return;
-  }
-  coreState.stopSpeech();
-  speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(welcomeText);
-  utterance.lang = "ja-JP";
-  utterance.rate = 0.95;
-  coreState.trackSpeech(utterance);
-  speechSynthesis.speak(utterance);
-}
-// Try once on initial load; browsers may block automatic speech.
-if (location.hash === "" || location.hash === "#overview") {
-  window.addEventListener("load", () => playWelcome(), { once: true });
-}
-$("stop-speech").onclick = () => {if(voiceConversation?.active)voiceConversation.stop("読み上げと音声対話を停止しました");coreState.stopSpeech();window.speechSynthesis?.cancel();};
+const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
+function speakVoiceReply(text){const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":"";return spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"));}
+function speak(text){if($("speak").checked)void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
+const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。J.A.R.V.I.S.です。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
+if(location.hash===""||location.hash==="#overview")window.addEventListener("load",()=>{if(!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
+$("welcome-start").onclick=async()=>{const startAfter=$("welcome-conversation").checked;voiceConversation?.stop("起動の挨拶を再生します。マイクは停止中です。");const played=await welcome.play({userInitiated:true});if(played&&startAfter&&!document.hidden)void voiceConversation.startConversation();};
+$("stop-speech").onclick=()=>{welcome.cancel();if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");speechOutput.stop();};
 async function sendChat(command,voiceMode=false) {
   if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声対話を再開してください");return null;}
   command=command.trim();
@@ -1020,10 +994,11 @@ async function sendChat(command,voiceMode=false) {
   const epoch=authEpoch;
   setBusy(true);
   message("user", command);
-  $("command").value = "";
+  if(!voiceMode)$("command").value = "";
   say("J.A.R.V.I.S.が考えています…");
   try {
     const previewChat=$('chat-preview-mock').checked;
+    if(voiceMode&&!previewChat)throw Error("実AIはAPI残高・費用未確認のため停止中です。音声会話はPreviewモックのみ利用できます。");
     const remembered=previewChat?{context:''}:await memoryUI.prepare(command);
     rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});
     if(epoch!==authEpoch)return null;
@@ -1053,6 +1028,7 @@ async function sendChat(command,voiceMode=false) {
       : await request("/api/chat", "POST", { prompt });
     if(epoch!==authEpoch)return null;
     if (typeof data.answer!=="string" || !data.answer.trim()) throw Error("回答が空または不正な形式でした。実行履歴を確認してください");
+    if(voiceMode&&previewChat&&!data.answer.includes("【Previewモック】"))data.answer="【Previewモック】"+data.answer;
     message("assistant", data.answer);
     history.push(
       { role: "user", text: command },
@@ -1080,29 +1056,29 @@ $("chat-form").onsubmit = e=>{e.preventDefault();if(busy)return;stopDictation();
 function stopDictation(message='音声入力を停止しました。文章は入力欄に残しています。'){
  voiceConversation?.stop(message,{abort:true});
 }
-voiceConversation=createVoiceInput({
+voiceConversation=createVoiceSession({
  Recognition:window.SpeechRecognition||window.webkitSpeechRecognition,
  getText:()=>$("command").value,
  onText:text=>{$("manual-input").open=true;$("command").value=text;},
- cancelSpeech:()=>{voiceSpeechCancel?.();coreState.stopSpeech();window.speechSynthesis?.cancel();},
+ cancelSpeech:()=>{welcome.cancel();speechOutput.stop();},
+ authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>$("chat-preview-mock").checked&&document.documentElement.dataset.environment!=="production",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{if(state==="error")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声入力を停止":"球体を押して音声入力を開始");}
+ onState:(state,text)=>{if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
 });
 function voice(){
- if(voiceConversation.active){voiceConversation.stop();return;}
  if(busy)return say("処理終了後に音声入力してください");
- voiceConversation.start();
+ voiceConversation.startDictation();
 }
-$("voice-start").onclick=voice;
+$("voice-start").onclick=()=>void voiceConversation.startConversation();
 $("voice-stop").onclick=()=>voiceConversation.stop();
 $("command").addEventListener('input',()=>{if(voiceConversation.active)stopDictation('手動編集に切り替えました。文章を保持しています。');});
-document.addEventListener("visibilitychange",()=>{if(document.hidden)stopDictation("画面が非表示になったため停止しました。文章は保持しています。");});
-window.addEventListener("pagehide",()=>stopDictation());
+document.addEventListener("visibilitychange",()=>{if(document.hidden){welcome.cancel();stopDictation("画面が非表示になったため停止しました。文章は保持しています。");speechOutput.stop();}});
+window.addEventListener("pagehide",()=>{welcome.cancel();stopDictation();speechOutput.stop();});
 $("orb-voice").onclick=()=>{
  if(voiceConversation.active)voiceConversation.stop();
  else if($("orb-voice").dataset.state==="speaking")$("stop-speech").click();
- else voice();
+ else void voiceConversation.startConversation();
 };
 $("mic-command").onclick=voice;
 renderDrafts();
