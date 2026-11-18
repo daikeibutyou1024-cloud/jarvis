@@ -73,7 +73,7 @@
             <button
               id="orb-voice"
               class="orb-wrap"
-              aria-label="球体を押して音声対話を開始"
+              aria-label="球体を押して音声入力を開始"
               aria-pressed="false"
             >
               <span class="core-particles" aria-hidden="true"></span><span class="orb-halo" aria-hidden="true"></span><span class="orb-ring"></span
@@ -81,7 +81,7 @@
               ><span class="orb-ring-three"></span><span class="orb-ticks" aria-hidden="true"></span><span class="orb-segments" aria-hidden="true"></span><span class="orb"></span>
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
-            <p id="voice-status" role="status">球体をタップして自動音声対話を開始</p>
+            <p id="voice-status" role="status">タップして音声入力。約3秒の無音で停止・自動送信なし</p>
             <details id="manual-input"><summary>文字で入力する</summary></details>
             <details id="voice-settings"><summary>音声・読み上げ設定</summary><div id="voice-options"></div></details>
           </div>
@@ -536,8 +536,8 @@
         <div id="voice-conversation-controls" class="actions">
           <label><input id="chat-preview-mock" type="checkbox" checked>Previewモック回答（実AI・DB利用なし）</label>
           <button id="voice-start" type="button" hidden>音声対話開始</button><button id="voice-stop" type="button" hidden disabled>音声対話終了</button>
-          <p id="voice-conversation-status" role="status">開始後は発話の終わりに自動送信し、回答を読み上げて再び待ち受けます。現在はPreviewモック回答です。ブラウザの音声認識は音声をブラウザ提供元へ送る場合があります。iPhoneは画面を開いたまま使用し、自動再開できない場合はオーブをタップして再開してください。</p>
-          <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。青い球体は自動音声対話の開始・終了、◎は従来の文字起こしです。音声対話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
+          <p id="voice-conversation-status" role="status">約3秒の無音で音声入力を停止し、文章を入力欄に残します。送信ボタンを押すまで送信しません。音声認識はブラウザ提供元へ音声を送る場合があります。iPhoneでは画面を開いたまま使用してください。</p>
+          <p class="hint">オーブと入力欄の◎は同じ音声入力です。もう一度タップすると停止します。入力済みの文章は残し、音声を追記します。送信には既存の認証が必要です。</p>
         </div>
         <form id="chat-form" class="command-row">
           <button
