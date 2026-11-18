@@ -1,6 +1,7 @@
 import {createVoiceInput} from './voice-input.js';
 // Modes share exactly one recognizer. Only an explicitly started conversation can send.
-export function createVoiceSession({Recognition,getText,onText,onListening,onState,authorize,send,speak,cancelSpeech,isBusy=()=>false,isHidden=()=>false,canConverse=()=>true,now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
+export function createVoiceSession({Recognition,getText,onText,onListening,onState,authorize,send,speak,cancelSpeech,isBusy=()=>false,isHidden=()=>false,canConverse=()=>true,singleTurn=()=>false,blockedReason=()=> '実AIは費用・残高未確認のため停止中です。Previewモック回答を選択してください。',now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
+ const label=()=>singleTurn()?'Claude実AI（1回テスト）':'Previewモック';
  let mode='dictation',running=false,epoch=0,phase='idle',timer=null,lastVoiceText='';
  const status=(state,text)=>{phase=state;onState(state,text);};
  function stop(message='会話を停止しました。入力した文章は保持しています。'){
@@ -10,7 +11,7 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
  function listen(token){
   if(token!==epoch||!running)return;
   if(isHidden()||isBusy()){pause('画面または処理状態を確認してください。');return;}
-  status('listening','聞いています。約3秒の無音で確定し、Previewモックへ自動送信します。');input.start();
+  status('listening',`聞いています。約3秒の無音で確定し、${label()}へ自動送信します。`);input.start();
  }
  async function complete(result){
   if(!running||mode!=='conversation'||!['listening','starting','stopping'].includes(phase))return;
@@ -21,8 +22,8 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
   const dispatch=async()=>{
    timer=null;if(token!==epoch||!running||phase!=='finalizing')return;
    if(isHidden()||isBusy()||!canConverse()){pause('送信できる状態ではありません。実AIは停止中です。');return;}
-   status('processing','Previewモックの回答を待っています。自動再送はしません。');
-   try{const answer=await send(text);if(token!==epoch||!running)return;if(!answer?.trim())throw Error('回答が空でした。');status('speaking','Previewモックの回答を読み上げています。');await speak(answer);if(token!==epoch||!running)return;listen(token);}
+   status('processing',`${label()}の回答を待っています。自動再送はしません。`);
+   try{const answer=await send(text);if(token!==epoch||!running)return;if(!answer?.trim())throw Error('回答が空でした。');status('speaking',`${label()}の回答を読み上げています。`);await speak(answer);if(token!==epoch||!running)return;if(singleTurn()){stop('1回限定の実AIテストが終了しました。追加送信は禁止しています。');return;}listen(token);}
    catch(error){if(token===epoch&&running)pause(error.message||'通信または読み上げに失敗しました。');}
   };
   const remaining=Math.max(0,3000-(now()-result.lastActivityAt));
@@ -35,7 +36,7 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
  async function startConversation(){
   if(running){stop();return;}
   if(isHidden()||isBusy())return;
-  if(!canConverse()){status('paused','実AIは費用・残高未確認のため停止中です。Previewモック回答を選択してください。');return;}
+  if(!canConverse()){status('paused',blockedReason());return;}
   if(getText().trim()&&getText()!==lastVoiceText){status('paused','入力中の文章を先に送信または退避してください。上書きしません。');return;}
   cancelSpeech();mode='conversation';running=true;const token=++epoch;status('authorizing','音声会話の認証を確認しています…');
   try{const authorized=await authorize();if(!authorized){if(token===epoch&&running)pause('認証をキャンセルしました。');return;}if(token===epoch&&running){if(!canConverse()){pause('実AIは停止中です。Previewモックのみ利用できます。');return;}listen(token);}}

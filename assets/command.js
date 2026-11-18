@@ -42,6 +42,8 @@ import {
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
 let prototypeFlow=null, voiceConversation=null;
+let liveTestAllowed=false,liveTestSpent=false;
+const liveTestSelected=()=>$("voice-live-once").checked;
 let statusDismissTimer = null;
 const $ = (id) => document.getElementById(id),
   say = (message) => {
@@ -980,7 +982,7 @@ function message(role, text) {
   root.scrollTop = root.scrollHeight;
 }
 const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
-function speakVoiceReply(text){const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":"";return spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"));}
+function speakVoiceReply(text){const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":text.includes("【Claude実AI・1回テスト】")?"クロードの実AIテストの回答です。":"";return spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"));}
 function speak(text){if($("speak").checked)void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
 const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。J.A.R.V.I.S.です。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
 if(location.hash===""||location.hash==="#overview")window.addEventListener("load",()=>{if(!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
@@ -998,8 +1000,10 @@ async function sendChat(command,voiceMode=false) {
   say("J.A.R.V.I.S.が考えています…");
   try {
     const previewChat=$('chat-preview-mock').checked;
-    if(voiceMode&&!previewChat)throw Error("実AIはAPI残高・費用未確認のため停止中です。音声会話はPreviewモックのみ利用できます。");
-    const remembered=previewChat?{context:''}:await memoryUI.prepare(command);
+    const liveTest=voiceMode&&liveTestSelected()&&liveTestAllowed&&!liveTestSpent;
+    if(voiceMode&&!previewChat&&!liveTest)throw Error("実AIはAPI残高・費用未確認のため停止中です。音声会話はPreviewモックのみ利用できます。");
+    if(liveTest&&command.length>256)throw Error("実AIテストは256文字以内の短い発話にしてください。");
+    const remembered=previewChat||liveTest?{context:''}:await memoryUI.prepare(command);
     rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});
     if(epoch!==authEpoch)return null;
     if(remembered.local){message('assistant',remembered.local);say(remembered.local);if(!voiceMode)speak(remembered.local);return remembered.local;}
@@ -1023,11 +1027,17 @@ async function sendChat(command,voiceMode=false) {
       "\n会話履歴：" +
       (remaining>memoryText.length ? previous.slice(-(remaining-memoryText.length)) : "") +
       question;
-    const data = previewChat
+    if(liveTest){liveTestSpent=true;$("voice-live-once").disabled=true;$("live-mode-label").textContent="Claude実AIテスト（使用済み・再送禁止）";$("live-test-status").textContent="1回限定テストを送信しました。結果不明でも再送しません。";}
+    const data = liveTest?await request('/api/business/chat-live-preview','POST',{message:command,conversation:history.slice(-4).map(r=>({role:r.role,text:r.text.slice(0,256)}))}):previewChat
       ? await request('/api/business/chat-preview','POST',{message:command,conversation:history.slice(-8).map(r=>({role:r.role,text:r.text.slice(0,2000)}))})
       : await request("/api/chat", "POST", { prompt });
     if(epoch!==authEpoch)return null;
     if (typeof data.answer!=="string" || !data.answer.trim()) throw Error("回答が空または不正な形式でした。実行履歴を確認してください");
+    if(liveTest){
+      if(data.live!==true||data.mock!==false)throw Error("実AIテストの応答を確認できません。再送しません。");
+      $("live-test-status").textContent=`Claude実AIテスト終了・再送禁止。入力${Number.isSafeInteger(data.usage?.input_tokens)?data.usage.input_tokens:'不明'} / 出力${Number.isSafeInteger(data.usage?.output_tokens)?data.usage.output_tokens:'不明'} tokens。推定費用 ${Number.isFinite(data.cost?.microUSD)?(data.cost.microUSD/1e6).toFixed(6):'不明'} USD`;
+      data.answer="【Claude実AI・1回テスト】"+data.answer;
+    }
     if(voiceMode&&previewChat&&!data.answer.includes("【Previewモック】"))data.answer="【Previewモック】"+data.answer;
     message("assistant", data.answer);
     history.push(
@@ -1036,7 +1046,7 @@ async function sendChat(command,voiceMode=false) {
     );
     if (history.length > 12) history.splice(0, history.length - 12);
     $("ai-status").textContent = "応答成功";
-    if(!previewChat)await memoryUI.record(command,data.answer);
+    if(!previewChat&&!liveTest)await memoryUI.record(command,data.answer);
     if(epoch!==authEpoch)return null;
     if(!voiceMode)speak(data.answer);
     say("回答しました");
@@ -1061,7 +1071,7 @@ voiceConversation=createVoiceSession({
  getText:()=>$("command").value,
  onText:text=>{$("manual-input").open=true;$("command").value=text;},
  cancelSpeech:()=>{welcome.cancel();speechOutput.stop();},
- authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>$("chat-preview-mock").checked&&document.documentElement.dataset.environment!=="production",
+ authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>($("chat-preview-mock").checked||(liveTestSelected()&&liveTestAllowed&&!liveTestSpent))&&document.documentElement.dataset.environment!=="production",singleTurn:liveTestSelected,blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
  onState:(state,text)=>{if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
@@ -1081,6 +1091,12 @@ $("orb-voice").onclick=()=>{
  else void voiceConversation.startConversation();
 };
 $("mic-command").onclick=voice;
+$("live-status-refresh").onclick=async()=>{
+ try{const policy=await request('/api/business/chat-live-preview');liveTestAllowed=policy.allowed===true&&!liveTestSpent;$("voice-live-once").disabled=!liveTestAllowed;$("live-mode-label").textContent=liveTestAllowed?"Claude実AIテスト（1回限定・条件確認済み）":"Claude実AIテスト（停止中）";$("live-test-status").textContent=liveTestAllowed?`${policy.model} / 最大出力${policy.maxOutput} tokens / 推定最大${policy.maxMicroUSD/1e6} USD。今回1回のみ。`:policy.reason;}catch(error){liveTestAllowed=false;$("voice-live-once").disabled=true;$("live-test-status").textContent=error.message;}
+};
+$("voice-live-once").onchange=()=>{voiceConversation.stop();if(liveTestSelected()){$("chat-preview-mock").checked=false;$("voice-status").textContent=$("voice-conversation-status").textContent="Claude実AIテスト：オーブから次の1発話だけ送信し、読み上げ後に停止します。";}};
+$("chat-preview-mock").addEventListener('change',()=>{voiceConversation.stop();if($("chat-preview-mock").checked)$("voice-live-once").checked=false;});
+
 renderDrafts();
 renderMetrics();
 renderFinance();
