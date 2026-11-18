@@ -7,5 +7,7 @@
   "preview_authenticated_save_reload_restore": false,
   "weather_voice_and_hidden_legacy_reviewed": false,
   "production_password_preserved": false,
-  "workers_free_no_extra_cost": false
+  "workers_free_no_extra_cost": false,
+  "safe_recovery_bundle_verified": false,
+  "recovery_bundle_path": ""
 }

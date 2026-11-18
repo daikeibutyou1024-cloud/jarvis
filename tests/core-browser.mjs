@@ -3,25 +3,34 @@ import {browserRuntime} from './browser-runtime.mjs';
 import {startRehearsal} from './rehearsal-server.mjs';
 const r=await startRehearsal(),rt=await browserRuntime();let browser;
 try{
- browser=await rt.playwright.chromium.launch({headless:true,executablePath:rt.executable});const c=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,timezoneId:"Asia/Tokyo"});
- await c.route('**/*',route=>new URL(route.request().url()).origin===r.baseURL?route.continue():route.abort());
- await c.addInitScript(()=>{
-  window.SpeechSynthesisUtterance=class {constructor(text){this.text=text;}};
-  Object.defineProperty(window,'speechSynthesis',{value:{cancel(){},speak(u){window.lastSpeech=u;u.onstart?.();}}});
-  window.SpeechRecognition=class{start(){window.recognition=this;this.onstart();}stop(){this.onend();}};
- });
- const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(r.baseURL+'/#overview');
- await p.evaluate(()=>window.lastSpeech?.onend?.());const core=p.locator('#orb-voice');
- for(const width of [320,375,390,430,768,1440]){await p.setViewportSize({width,height:900});assert(await core.isVisible());assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert((await core.boundingBox()).width<=width);const boxes=await p.evaluate(()=>{const rect=id=>{const r=document.querySelector(id).getBoundingClientRect();return {x:r.x,y:r.y,bottom:r.bottom,right:r.right};};return {system:rect('.hud-system'),core:rect('.hud-core-stage'),chat:rect('#home-communication'),input:rect('#home-command')};});if(width===1440){assert(boxes.system.right<=boxes.core.x);assert(boxes.core.right<=boxes.chat.x);assert(boxes.input.y>=boxes.chat.bottom);await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'/tmp/jarvis-command-desktop.png',fullPage:true});}if(width<=430){assert(boxes.core.bottom<=boxes.input.y);assert(boxes.input.bottom<=boxes.chat.y);assert(boxes.chat.bottom<=boxes.system.y);}}
- await p.setViewportSize({width:390,height:844});assert.equal(await p.locator('.orb-ring').evaluate(el=>getComputedStyle(el).animationDuration),'28s');await p.screenshot({path:'/tmp/jarvis-command-mobile.png',fullPage:true});assert.equal(await p.locator('#ai-status').textContent(),'未確認');assert.equal(await p.locator('#db-status').textContent(),'未確認');assert.match(await p.locator('#home-time').textContent(),/\d{1,2}:\d{2}:\d{2}/);
- await core.click();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='listening');assert.equal(await p.locator('#home-input-state').textContent(),'入力中');await p.evaluate(()=>window.recognition.onresult({results:[[{transcript:'音声入力テスト'}]]}));assert.equal(await p.locator('#command').inputValue(),'音声入力テスト');await core.click();assert.equal(await core.getAttribute('data-state'),'idle');
- let release;const gate=new Promise(resolve=>release=resolve);
- await c.route('**/api/chat',async route=>{await gate;await route.fulfill({json:{answer:'模擬回答です。😊'}});});
- await p.locator('#manual-input').evaluate(e=>e.open=true);await p.locator('#chat-preview-mock').uncheck();await p.locator('#speak').check();await p.locator('#send-command').click();await p.locator('#password').fill('rehearsal-only');await p.locator('#auth-form button.primary').click();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='thinking');
- assert.equal(await p.locator('.orb-ring').evaluate(el=>getComputedStyle(el).animationDuration),'5s');release();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='speaking');assert.equal(await p.locator('#home-speech-state').textContent(),'読み上げ中');assert.match(await p.locator('#conversation').textContent(),/模擬回答です。😊/);
- await p.locator('#stop-speech').click();assert.equal(await core.getAttribute('data-state'),'idle');
- await c.route('**/api/chat',route=>route.fulfill({status:504,json:{error:'模擬タイムアウト',diagnostic:{id:'mock-diagnostic',stage:'provider_body'}}}));
- await p.locator('#command').fill('失敗テスト');await p.locator('#send-command').click();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='error');assert.equal(await core.evaluate(el=>getComputedStyle(el).getPropertyValue('--core-light').trim()),'#ffac52');await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='idle');
- await p.emulateMedia({reducedMotion:'reduce'});assert.equal(await p.locator('.orb-ring').evaluate(el=>getComputedStyle(el).animationName),'none');
- assert.deepEqual(errors,[]);assert.equal(r.stats().outboundAttempts,0);console.log(JSON.stringify({result:'passed',viewports:6,states:['idle','listening','thinking','speaking','error'],reducedMotion:true,externalRequests:0,engine:'Chromium mobile emulation; not real Safari'}));
+ browser=await rt.playwright.chromium.launch({headless:true,executablePath:rt.executable,args:['--no-sandbox']});
+ for(const layout of [{name:'desktop',width:1440,height:1000},{name:'mobile',width:390,height:844}]){
+  const c=await browser.newContext({viewport:{width:layout.width,height:layout.height},isMobile:layout.name==='mobile',hasTouch:layout.name==='mobile',timezoneId:'Asia/Tokyo'});let posts=0,release;
+  const gate=new Promise(resolve=>release=resolve);
+  await c.route('**/*',route=>new URL(route.request().url()).origin===r.baseURL?route.continue():route.abort());
+  await c.addInitScript(()=>{
+   window.recs=[];window.SpeechRecognition=class{constructor(){window.recs.push(this);}start(){window.recognition=this;this.onstart?.();}stop(){this.onend?.();}abort(){}};
+   window.SpeechSynthesisUtterance=class{constructor(text){this.text=text;}};
+   Object.defineProperty(window,'speechSynthesis',{value:{speak(u){window.lastSpeech=u;u.onstart?.();},cancel(){const u=window.lastSpeech;window.lastSpeech=null;u?.onend?.();},getVoices(){return [];}}});
+  });
+  await c.route('**/api/business/chat-preview',async route=>{posts++;assert.equal(route.request().headers()['x-jarvis-password'],'rehearsal-only');if(posts===1){await gate;return route.fulfill({json:{answer:'【Previewモック】模擬回答です。😊',mock:true,realCostUSD:0}});}return route.fulfill({status:504,json:{error:'模擬タイムアウト',diagnostic:{id:'core-mock',stage:'provider_body'}}});});
+  const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));await p.goto(r.baseURL+'/#overview');const core=p.locator('#orb-voice'),color=()=>core.evaluate(e=>getComputedStyle(e).getPropertyValue('--core-light').trim());
+  if(layout.name==='desktop')for(const width of [320,375,390,430,768,1440]){
+   await p.setViewportSize({width,height:900});assert(await core.isVisible());assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert((await core.boundingBox()).width<=width);
+   const b=await p.evaluate(()=>{const rect=q=>{const r=document.querySelector(q).getBoundingClientRect();return {x:r.x,y:r.y,right:r.right,bottom:r.bottom};};return {system:rect('.hud-system'),core:rect('.hud-core-stage'),chat:rect('#home-communication'),input:rect('#home-command')};});
+   if(width===1440){assert(b.system.right<=b.core.x);assert(b.core.right<=b.chat.x);assert(b.input.y>=b.chat.bottom);}if(width<=430){assert(b.core.bottom<=b.input.y);assert(b.input.bottom<=b.chat.y);assert(b.chat.bottom<=b.system.y);}
+  }
+  await p.setViewportSize({width:layout.width,height:layout.height});assert.equal(await color(),'#55e7ff');assert.equal(await p.locator('.orb-ring').evaluate(e=>getComputedStyle(e).animationDuration),'28s');
+  // The orb now starts hands-free conversation: authenticate BEFORE recognition.
+  await core.click();await p.waitForSelector('#auth-dialog[open]');assert.equal(await p.evaluate(()=>window.recs.length),0);assert.equal(posts,0);await p.locator('#password').fill('rehearsal-only');await p.locator('#auth-form button.primary').click();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='listening');assert.equal(await core.getAttribute('aria-pressed'),'true');assert.equal(await color(),'#ff5375');assert.equal(await p.locator('#home-input-state').textContent(),'入力中');
+  const utter=text=>p.evaluate(text=>{const rec=window.recs.at(-1),row=[{transcript:text}];row.isFinal=true;rec.onresult({results:[row]});rec.onresult({results:[row]});rec.onend();rec.onend();},text);
+  await utter('こんにちは');await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='thinking');assert.equal(posts,1);assert.equal(await p.locator('.orb-ring').evaluate(e=>getComputedStyle(e).animationDuration),'5s');release();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='speaking');assert.equal(await color(),'#55e7ff');assert.equal(await p.evaluate(()=>window.lastSpeech.text),'模擬回答です。');assert.equal(await p.locator('#home-speech-state').textContent(),'読み上げ中');
+  // Pressing the orb during speech cancels the loop. Late speech events cannot restart it.
+  await p.evaluate(()=>window.savedSpeech=window.lastSpeech);await core.click();await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='idle');await p.evaluate(()=>window.savedSpeech.onend?.());assert.equal(await core.getAttribute('aria-pressed'),'false');assert.equal(await p.evaluate(()=>window.recs.length),1);assert.equal(posts,1);
+  await core.click();await p.waitForFunction(()=>window.recs.length===2);await utter('失敗テスト');await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='error');assert.equal(await color(),'#ffac52');assert.equal(posts,2);await p.waitForFunction(()=>document.querySelector('#orb-voice').dataset.state==='idle');assert.equal(await color(),'#55e7ff');assert.equal(await core.getAttribute('aria-pressed'),'false');
+  await core.click();await p.waitForFunction(()=>window.recs.length===3);await core.click();await utter('停止後の古いイベント');await p.waitForTimeout(1300);assert.equal(posts,2);assert.equal(await core.getAttribute('data-state'),'idle');
+  await p.emulateMedia({reducedMotion:'reduce'});assert.equal(await p.locator('.orb-ring').evaluate(e=>getComputedStyle(e).animationName),'none');assert.deepEqual(errors,[]);assert.equal(await p.evaluate(()=>Object.values(localStorage).join('|').includes('rehearsal-only')||Object.values(sessionStorage).join('|').includes('rehearsal-only')),false);
+  await c.close();console.log(JSON.stringify({result:'passed',layout:layout.name,states:['idle','listening','thinking','speaking','error'],checks:'auth-before-listen,orb-toggle,colors,speech-filter,stop,late-event-rejection,no-auto-retry,reduced-motion',realMicrophone:false,paidCalls:0}));
+ }
+ assert.equal(r.stats().outboundAttempts,0);
 }finally{await browser?.close();await r.close();}

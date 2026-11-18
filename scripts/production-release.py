@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Read-only by default. Mutations require a pinned plan, passing evidence and explicit approval."""
-import argparse,hashlib,json,os,pathlib,re,sqlite3,subprocess,urllib.request,urllib.error
+import argparse,hashlib,importlib.util,json,os,pathlib,re,sqlite3,subprocess,urllib.request,urllib.error
 ROOT=pathlib.Path(__file__).resolve().parents[1]
 ACCOUNT='a58aa91d4347b0a3691d51d2e382a392';PROJECT='asset-simulator'
 PREVIEW='5ec09d38-2ed8-4c7a-ba67-bfd9c2ed32d0';PRODUCTION='4cae3d2a-eff6-4a1d-871e-56491bdf082a'
@@ -38,7 +38,7 @@ def plan():
  assert c['preview']['env_vars']['PREVIEW_MOCK_AUTOMATION_ENABLED']['value']=='false'
  metadata=api('/d1/database/'+PRODUCTION);assert metadata['uuid']==PRODUCTION and metadata['name']=='jarvis-calendar'
  new=inventory()
- return {'schema':1,'release':RELEASE,'candidate':git('rev-parse','HEAD'),'main':git('ls-remote','origin','refs/heads/main').split()[0],'production_deployment':p['canonical_deployment']['id'],'production_config_hash':digest(c['production']),'production_sql_executed':False,'production_schema_currently_verified':False,'preview_id':PREVIEW,'production_id':PRODUCTION,'migration_hashes':{str(f.relative_to(ROOT)):hashlib.sha256(f.read_bytes()).hexdigest() for f in sql_files()},'new_tables':[r[1] for r in new if r[0]=='table'],'new_indexes':[r[1] for r in new if r[0]=='index'],'mutations_performed':False,'required_evidence':['preview_authenticated_save_reload_restore','weather_voice_and_hidden_legacy_reviewed','production_password_preserved','workers_free_no_extra_cost'],'ready_for_approval':False}
+ return {'schema':1,'release':RELEASE,'candidate':git('rev-parse','HEAD'),'main':git('ls-remote','origin','refs/heads/main').split()[0],'production_deployment':p['canonical_deployment']['id'],'historical_rollback_allowed':False,'recovery_policy':'jarvis-readonly-no-ai-v1','production_config_hash':digest(c['production']),'production_sql_executed':False,'production_schema_currently_verified':False,'preview_id':PREVIEW,'production_id':PRODUCTION,'migration_hashes':{str(f.relative_to(ROOT)):hashlib.sha256(f.read_bytes()).hexdigest() for f in sql_files()},'new_tables':[r[1] for r in new if r[0]=='table'],'new_indexes':[r[1] for r in new if r[0]=='index'],'mutations_performed':False,'required_evidence':['preview_authenticated_save_reload_restore','weather_voice_and_hidden_legacy_reviewed','production_password_preserved','workers_free_no_extra_cost','safe_recovery_bundle_verified'],'ready_for_approval':False}
 def apply(saved,evidence,approval):
  if approval!=saved['candidate']:raise RuntimeError('Approval must name the exact reviewed commit')
  if git('status','--porcelain'):raise RuntimeError('Working tree must be clean')
@@ -46,6 +46,10 @@ def apply(saved,evidence,approval):
  if now!=saved:raise RuntimeError('Plan drift: regenerate and review before changing Production')
  if evidence.get('tested_commit')!=approval or evidence.get('unit_failed')!=0 or not evidence.get('unit_passed') or not evidence.get('desktop_passed') or not evidence.get('mobile_passed'):raise RuntimeError('Passing candidate test evidence is required')
  if not all(evidence.get(k) is True for k in saved['required_evidence']):raise RuntimeError('Required real-environment evidence is incomplete')
+ recovery_path=evidence.get('recovery_bundle_path')
+ if not recovery_path:raise RuntimeError('A verified no-AI recovery bundle is required before Production changes')
+ spec=importlib.util.spec_from_file_location('safe_recovery',ROOT/'scripts/prepare-safe-recovery.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+ module.verify(pathlib.Path(recovery_path),expected_commit=approval)
  remote=git('ls-remote','origin','refs/heads/feature/ai-business-rebuild').split()[0]
  if remote!=approval:raise RuntimeError('Candidate must match the pushed development branch')
  subprocess.run(['npm','test'],cwd=ROOT,check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -72,11 +76,10 @@ def apply(saved,evidence,approval):
  if git('ls-remote','origin','refs/heads/main').split()[0]!=saved['main']:raise RuntimeError('main changed: stop without pushing')
  subprocess.run(['git','merge-base','--is-ancestor',saved['main'],approval],cwd=ROOT,check=True)
  subprocess.run(['git','push','origin',approval+':refs/heads/main'],cwd=ROOT,check=True)
- return {'submitted':True,'commit':approval,'next':'Wait for the Production deployment, verify its DB/flags, then perform authenticated smoke checks. On failure roll back Pages code only; preserve new rows.'}
+ return {'submitted':True,'commit':approval,'next':'Wait for the Production deployment, verify its DB/flags, then perform authenticated smoke checks. On failure deploy the verified no-AI recovery bundle after approval; preserve new rows. Historical Pages rollback is prohibited.'}
 def rollback(saved,approved):
- if approved!=saved['production_deployment']:raise RuntimeError('Rollback approval must match the pinned prior deployment')
- result=api('/pages/projects/'+PROJECT+'/deployments/'+approved+'/rollback',{},method='POST',pages=True)
- return {'requested':True,'deployment':result.get('id'),'database_changed':False}
+ # Historical Pages deployments embed the former paid API code/credentials. Never activate them.
+ raise RuntimeError('Historical Pages rollback is disabled, including 658b3bc. After explicit approval, redeploy the verified jarvis-readonly-no-ai-v1 bundle; do not activate an old deployment.')
 def main():
  a=argparse.ArgumentParser();a.add_argument('--plan',default='work/production-plan.json');a.add_argument('--apply-approved-commit');a.add_argument('--evidence');a.add_argument('--rollback-approved-deployment');args=a.parse_args();target=ROOT/args.plan
  if args.rollback_approved_deployment:

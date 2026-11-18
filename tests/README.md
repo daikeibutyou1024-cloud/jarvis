@@ -17,3 +17,9 @@ The shared budget fixture is 5 USD to match current configuration validation.
 HTTP and synthetic credentials. Run both desktop and `MOBILE_TEST=1` layouts.
 Real D1 verification is a separately authorized Preview-only operation; these
 local tests do not establish production or authenticated deployed UI behavior.
+
+Recovery checks build a local advanced-mode worker with no legacy Functions, verify
+its hashes and deny API requests carrying valid synthetic Production sessions.
+They never call providers, write D1, change Pages settings or perform a rollback.
+`tests/core-browser.mjs` covers authentication before the orb starts hands-free
+recognition, colors, speech, stop, stale events and reduced motion on desktop/mobile.

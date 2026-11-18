@@ -76,7 +76,7 @@ node tests/voice-conversation-browser.mjs
 
 ## 承認後の順序（今回は実行しない）
 
-1. 候補commitとSQL一覧・制限付き運用範囲を利用者が明示承認する。実Previewの本人ログイン後保存/再読込/承認履歴、天気、iPhoneの音声確認が未完なら証拠をtrueにしない。
+1. 候補commitとSQL一覧・制限付き運用範囲、安全復旧bundleを利用者が明示承認する。実Previewの本人ログイン後保存/再読込/承認履歴、天気、iPhoneの音声確認が未完なら証拠をtrueにしない。
 2. `release/production-evidence.example.json` をworkへコピーし、新しい計画と候補の単体/PC/スマホテスト成功を証拠JSONに記録。`tested_commit`、`unit_failed:0`、`unit_passed`、`desktop_passed:true`、`mobile_passed:true` と計画のrequired_evidence各項目を事実に基づいて設定する。
 3. 明示承認後、Production DBの実定義・既存行ハッシュを読取。追加16表に同名表があれば、二重適用せず停止して互換性をレビュー。全索引名の重複も停止。既存Google・jobs・研究キャッシュの行は更新しない。
 4. 新規SQLだけをProduction DB ID固定で適用。旧データ不変を照合。通常のjobs/費用GETも本番では自動中断整理やスキーマ作成をせず、既存行を読み取りだけにする。既存管理パスワードを保持して必要設定だけ追加し、旧設定・bindingの保持を再確認する。
@@ -92,24 +92,49 @@ python scripts/production-release.py --plan work/production-plan.json \
 
 スクリプトは証拠不足・候補不一致・計画/設定の変化・テスト失敗・mainの変化で停止する。mainへのpush後の配備完了待ちと実機検証は、成功扱いに省略しない。
 
-## 復旧・中断
+## 復旧・中断（2026-11-18 改訂）
 
-- 配備失敗時は旧Production配備を維持。新コードが公開された後の重大不具合は、計画に記録した前配備へPagesコードだけロールバックする。mainのforce巻戻し、DBバックアップへの上書きはしない。
-- ロールバック後も新規16表と保存済み原稿・承認履歴・収支を残す。旧コードはそれらを使用しない。新表をDROPして戻す方法は禁止。
-- DB適用後に設定更新やpushが失敗しても自動で再適用・削除しない。適用済みスキーマと識別行、旧データハッシュを承認範囲で確認し、既存表扱いの互換性レビューから再開する。
-- 保存結果が不明ならまず再取得し、同じmutation IDの再送で確定結果を回収する。異なる本文・古い版は409として止める。未保存編集は退避し、自動無限再試行しない。
-- 実D1の災害復旧・バックアップ復元は今回のコードロールバックと別。既存バックアップは変更しない。
+**658b3bcと既存の旧Pages配備は安全な復旧先ではない。** 旧実AIコードと当時の資格情報が動く可能性があるため、Pagesの過去配備への直接rollbackは禁止する。計画中の `production_deployment` は監査用の現在値であり、許可された復旧先ではない。`--rollback-approved-deployment` はIDが一致していてもCloudflareへ要求せず停止する。
 
-コードだけのロールバックも明示承認後、計画に固定した旧配備IDで行う:
+安全な復旧先は、本リリースcommitに固定した `jarvis-readonly-no-ai-v1` バンドル。`release/recovery/worker-template.mjs` と `index.html` だけから作り、Pages advanced modeの `_worker.js` が応答する。旧Functions・Netlify Functionsを含めず、旧コードへ制御を渡さない。旧画面が既に別タブに残っていても、復旧先に届くAPI要求はこのworkerで拒否する。認証済みCookie・パスワード・APIキー・AI有効化フラグがあっても、すべてのAPI・更新要求は503。D1/R2/外部fetchを使わず、画面のCSPでもscript/connectを拒否する。復旧画面はパスワード入力も要求しない。
+
+復旧版は一時的な案内画面。天気・音声・編集・保存は停止するが、クラウドDB・localStorage・IndexedDB・未保存の別タブを削除しない。旧UIを再利用したい場合も、未対策の旧workerを有効にする方法は不可。新たに検証・承認された復旧bundleを用意する。
+
+候補をcommitした後、ローカルだけで生成・照合する（配備はしない）:
 
 ```sh
-python scripts/production-release.py --plan work/production-plan.json \
-  --rollback-approved-deployment <計画に固定した旧Production配備ID>
+python scripts/prepare-safe-recovery.py --source-commit <候補の完全SHA> \
+  --output work/safe-recovery/<候補の完全SHA>
+python scripts/prepare-safe-recovery.py --verify --source-commit <候補の完全SHA> \
+  --output work/safe-recovery/<候補の完全SHA>
 ```
+
+Gitの固定commitからだけ生成し、worker/HTML・ZIPのSHA-256とファイル一覧をmanifestへ記録する。ローカルMiniflare/workerdが用意されている場合は `node tests/safe-recovery-runtime.mjs work/safe-recovery/<候補の完全SHA>` で実ランタイムの認証済みAPI阻止も検査する（リモート接続なし）。改変・余分な旧Functions・別commit・658b3bcを拒否する。既存の出力も上書きしない。通常のPreviewはこの復旧モードへ切り替わらない。
+
+本番移行用の証拠JSONには `safe_recovery_bundle_verified:true` と `recovery_bundle_path` を記録する。移行スクリプト自身も承認SHAとの一致・全ファイル/ZIPのハッシュを、Productionへの最初の変更前に再検証する。チェック済みと申告するだけでは通らない。
+
+障害時は別途明示承認を得て、この検証済みbundleの `public/` を同じPagesプロジェクトへ新しいProduction配備として公開する。**今回は実行しない。** 例えば承認後に限り:
+
+```sh
+# まず上記verifyを固定SHAで実行し、manifestを照合する。
+CLOUDFLARE_ACCOUNT_ID=a58aa91d4347b0a3691d51d2e382a392 \
+CLOUDFLARE_API_TOKEN="$CLOUDFLARE_PAGES_EDIT_TOKEN" \
+wrangler pages deploy work/safe-recovery/<承認SHA>/public \
+  --project-name asset-simulator --branch main
+```
+
+これはmainへのpushや過去配備の再有効化ではない。復旧配備の成功、`/__recovery__` のpolicy、認証済みAPI要求が503になることを確認し、新しい復旧配備IDを記録する。元のDB bindingやAIキーが残っていても復旧workerは一切読まない。Productionへ実配備しての確認は未実施。
+
+- 新規16表と保存済み原稿・承認履歴・収支は残す。DROPやバックアップへの上書きで戻す方法は禁止。
+- DB適用後に設定更新やpushが失敗しても自動で再適用・削除しない。承認範囲で既存スキーマとハッシュを確認して再開する。
+- 保存結果が不明ならまず再取得し、同じmutation IDで確定結果を回収する。異なる本文・古い版は409として止め、未保存編集は退避する。
+- 復旧前の未保存入力が残る別タブは閉じず、利用者がコピー退避する。復旧workerは未保存入力を回収できない。
+- 実D1の災害復旧・バックアップ復元は別の承認事項。既存バックアップは変更しない。
+- Cloudflare管理画面から人が禁止された旧配備を直接選ぶ操作まで、アプリ内コードでは無効化できない。管理画面・別CLIでの旧rollbackも禁止し、全復旧を上記bundleに統一する。
 
 ## 残る実環境確認
 
-ローカルの合成資格情報・SQLite・模擬天気応答の成功は、実管理ログインや実機Safariの成功ではない。現在の環境はPreviewホストへのHTTP通信が許可されておらず、管理パスワードも取得不能。実Previewで本人がログインして行う保存・音声確認は未検証と明示する。Productionの実DBスキーマは今回SQL禁止のため承認後確認に残す。実AI会話の費用・認証・応答品質は未検証で、今回は起動しない。
+ローカルの合成資格情報・SQLite・模擬天気応答の成功は、実管理ログインや実機Safariの成功ではない。現在の環境はPreviewホストへのHTTP通信が許可されておらず、管理パスワードも取得不能。天気・時間別予報・雨雲、音声入力/読み上げ、記事保存/再読込、D1履歴は2026-11-18に利用者が実機確認済みと報告。本環境からの実管理ログインを実行したとは扱わない。Productionの実DBスキーマは今回SQL禁止のため承認後確認に残す。実AI会話の費用・認証・応答品質は未検証で、今回は起動しない。
 
 ## 今回の検証記録
 
@@ -120,3 +145,13 @@ python scripts/production-release.py --plan work/production-plan.json \
 - 実Preview D1では新規テストownerだけを使い、4版の保存・承認履歴・重複防止・競合拒否・同操作再送・応答喪失復旧・制約失敗のロールバック・リース期限/フェンスを再確認した。テスト行は新規表に保持し、削除しない。
 - 退役動画画面の初期化、既存localStorage保持、音声の状態遷移/二重送信防止/停止、RESEARCH→CONTENT→MARKETINGの既存フローが成功。実課金API・外部投稿は未実行。
 - Functionsビルド成功。Production/main/本番D1/バックアップは変更しない。本番へのSQLはSELECTを含め今回未実行。
+
+## 2026-11-18 公開前点検の是正
+
+旧配備へのrollback経路を拒否し、固定commit由来の実AI停止・読み取り専用復旧bundleへ変更した。認証済みの合成Productionセッション、旧パスワードヘッダー、APIキー、有効化フラグを与えても、復旧workerの外部通信とbinding参照は0件。改変・旧Functions混入・別commitを拒否する。Productionでの復旧実行は行わない。
+
+球体の回帰テストは、認証後にハンズフリー音声認識を始める現仕様へ更新。PC/スマホで6幅の配置、待機の青・録音の赤・異常の橙、考慮中・読み上げ、球体による停止、停止後の古いイベントの拒否を模擬応答で確認する。実Claude/OpenAIは呼ばない。
+
+今回の追加後は単体332件が成功。球体のPC/スマホ回帰、通常の保存・承認・復旧、天気の3幅表示も成功。復旧bundleは本番へ配備せず、固定commitから生成・照合して保管する。
+
+復旧workerはローカルworkerdでも、認証済みの6つのAPI経路を503で拒否し、外部通信・旧ASSETS/backend呼出しがともに0件であることを確認した。Productionでは未実行。
