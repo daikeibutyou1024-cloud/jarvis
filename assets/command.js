@@ -273,6 +273,7 @@ function navigate(next) {
       : "AI下書き / 外部連携未接続";
     $("analytics-tools").hidden = page !== "analytics";
     $("finance-tools").hidden = page !== "finance";
+    if($("prepaid-panel"))$("prepaid-panel").hidden = page !== "finance";
     $("format").disabled = page !== "content";
   }
   $("editorial-panel").hidden = page !== "content";

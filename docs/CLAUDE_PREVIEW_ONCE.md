@@ -1,3 +1,5 @@
+> 更新：Previewの予算判定は [プリペイド方式](PREVIEW_PREPAID.md) に変更しました。以下の月額上限・開始利用額・旧有効化フラグの記述は過去の仕様です。現行の実API停止は維持し、旧許可では解除できません。
+
 # Claude実AI・Preview限定1回テスト
 
 この変更は実AIの常時有効化ではない。通常の `/api/chat` と `runAI` の無条件停止は維持する。専用 `/api/business/chat-live-preview` だけが、対象Preview、署名付きログイン、正しいDB識別行、短期のサーバー承認記録、月次台帳、日次回数、未使用の固定operation IDを満たす場合に既存Anthropic処理を1回呼ぶ。

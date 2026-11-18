@@ -1,3 +1,5 @@
+import {previewHost} from '../../../lib/preview-session.js';
+import {prepaidUsage,prepaidPolicy} from '../../../lib/preview-prepaid.js';
 import {openingMicro} from '../../../lib/ai-money.js';
 import {initReconciliations,reconcileAI,ReconciliationError,validateReconciliation} from '../../../lib/ai-reconciliation.js';
 import { denied, responseJSON as json } from '../../../lib/research-network.js';
@@ -5,6 +7,7 @@ import { recoverAI } from '../../../lib/ai-runtime.js';
 export async function onRequestGet({request,env}) {
  const auth=denied(request,env); if(auth)return auth;
  try {
+  if(previewHost(request,env)){const credit=await prepaidUsage(env);return json({...credit,threadsAllowed:!credit.threadsUsedToday&&prepaidPolicy(request,env,'threads-draft').allowed});}
   const month=new Date().toISOString().slice(0,7),openingUSD=(openingMicro(env,month)/1e6).toFixed(6);
   if(env.CF_PAGES_BRANCH!=='main'){await recoverAI(env.JARVIS_DB);await initReconciliations(env.JARVIS_DB);}
   const total=await env.JARVIS_DB.prepare('SELECT COALESCE(SUM(charged_micro),0) AS committedMicroUSD FROM ai_operations WHERE month=?').bind(month).first();
@@ -19,7 +22,7 @@ export async function onRequestPost({request,env}) {
   const raw=await request.text();if(raw.length>4000)return json({error:'照合内容が大きすぎます'},400);
   const b=JSON.parse(raw);validateReconciliation(b);
   // Retain the old endpoint shape for existing clients; new clients bind the displayed snapshot.
-  if(env.CF_PAGES_BRANCH!=='main')await recoverAI(env.JARVIS_DB);
+  if(env.CF_PAGES_BRANCH!=='main'&&!previewHost(request,env))await recoverAI(env.JARVIS_DB);
   return json(await reconcileAI(env.JARVIS_DB,b));
  }catch(e){return json({error:e instanceof ReconciliationError?e.message:e instanceof SyntaxError?'照合内容の形式が不正です':'照合記録を保存できませんでした'},e instanceof ReconciliationError?e.status:e instanceof SyntaxError?400:503);}
 }
