@@ -16,7 +16,7 @@ try{
  await page.goto(rehearsal.baseURL+'/#overview');
  for(const width of [390,768,1440]){
   await page.setViewportSize({width,height:900});
-  assert(await page.locator('#orb-voice').isVisible());assert(await page.locator('#voice-start').isVisible());
+  assert(await page.locator('#orb-voice').isVisible());assert.equal(await page.locator('#voice-start').isVisible(),false);
   await page.locator('#menu-toggle').focus();await page.keyboard.press('Tab');
   assert.equal(await page.evaluate(()=>document.querySelector('#main-menu').contains(document.activeElement)),false);
  }

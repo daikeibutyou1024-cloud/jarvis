@@ -33,6 +33,7 @@
           05 <span>FINANCE<small>売上・利益・API費用</small></span>
         </button>
       </nav>
+      <details id="weather-menu"><summary>☀ 天気・時間別予報・雨雲</summary></details>
       <div class="sidebar-foot">
         <span class="dot"></span> HUMAN IN THE LOOP
         <p>生成 → 内容確認 → 手動で公開<br />自動投稿は未接続</p>
@@ -49,7 +50,7 @@
       </header>
       <section id="overview" class="page">
         <div class="command-center">
-          <aside class="hud-system hud-panel" aria-label="SYSTEM STATUS">
+          <details class="hud-system hud-panel" aria-label="SYSTEM STATUS"><summary>システム状態・接続情報</summary>
             <h2>SYSTEM STATUS <span class="hud-dot"></span></h2>
             <p class="hud-kicker">J.A.R.V.I.S. / LOCAL INTERFACE</p>
             <dl class="system-readings">
@@ -65,7 +66,7 @@
               <div><dt>端末保存</dt><dd id="storage-status">確認中</dd></div>
             </dl>
             <p class="hud-note">接続状態は操作結果に基づきます。自動診断・AI実行は行いません。</p></details>
-          </aside>
+          </details>
           <div class="hud-core-stage">
             <div class="hud-core-heading">NEURAL INTERFACE <span>01 / CORE</span></div>
 <div class="core-wave" aria-hidden="true"><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i><i style="--bar:4;--level:0.8"></i><i style="--bar:5;--level:0.48"></i><i style="--bar:6;--level:0.25"></i><i style="--bar:0;--level:0.22"></i><i style="--bar:1;--level:0.4"></i><i style="--bar:2;--level:0.65"></i><i style="--bar:3;--level:0.32"></i></div>          <div class="core">
@@ -81,6 +82,8 @@
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
             <p id="voice-status" role="status">球体をタップして自動音声対話を開始</p>
+            <details id="manual-input"><summary>文字で入力する</summary></details>
+            <details id="voice-settings"><summary>音声・読み上げ設定</summary><div id="voice-options"></div></details>
           </div>
 
           </div>
@@ -99,7 +102,7 @@
               <p class="hint">同じ認証を共有するワークスペースの記憶です。個人別ではありません。認証情報は保存禁止。期限切れは参照対象外とし、次の保存操作でこの機能の記憶だけを整理します。</p>
             </details>
           </section>
-          <div id="home-command" class="hud-panel"><span class="command-caption">VOICE COMMAND</span><details id="manual-input"><summary>手動入力・送信を開く</summary></details><div id="voice-options"></div></div>
+
         </div>
         <section id="home-weather" class="weather-compact hud-panel" aria-label="天気・時間別予報・雨雲レーダー">
           <div class="weather-heading"><h2>WEATHER <span id="weather-current">取得中</span></h2><small id="weather-status" role="status"></small><button id="weather-refresh" type="button">更新</button></div>
@@ -532,8 +535,8 @@
         </div>
         <div id="voice-conversation-controls" class="actions">
           <label><input id="chat-preview-mock" type="checkbox" checked>Previewモック回答（実AI・DB利用なし）</label>
-          <button id="voice-start" type="button">音声対話開始</button><button id="voice-stop" type="button" disabled>音声対話終了</button>
-          <p id="voice-conversation-status" role="status">開始後は発話の終わりに自動送信し、回答を読み上げて再び待ち受けます。現在はPreviewモック回答です。ブラウザの音声認識は音声をブラウザ提供元へ送る場合があります。iPhoneは画面を開いたまま使用し、自動再開できない場合は「音声対話を再開」をタップしてください。</p>
+          <button id="voice-start" type="button" hidden>音声対話開始</button><button id="voice-stop" type="button" hidden disabled>音声対話終了</button>
+          <p id="voice-conversation-status" role="status">開始後は発話の終わりに自動送信し、回答を読み上げて再び待ち受けます。現在はPreviewモック回答です。ブラウザの音声認識は音声をブラウザ提供元へ送る場合があります。iPhoneは画面を開いたまま使用し、自動再開できない場合はオーブをタップして再開してください。</p>
           <p class="hint">初回の認証・マイク許可は必要です。同じタブでは認証を再利用します。青い球体は自動音声対話の開始・終了、◎は従来の文字起こしです。音声対話はブラウザの発話終了と約1.2秒の待機を使います。端末によって再開タップが必要です。</p>
         </div>
         <form id="chat-form" class="command-row">

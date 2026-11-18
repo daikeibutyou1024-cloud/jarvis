@@ -341,3 +341,7 @@
 @keyframes hud-ring-forward { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
 @keyframes hud-ring-reverse { from { transform:rotate(0deg); } to { transform:rotate(-360deg); } }
 #overview .orb { box-shadow:0 0 22px #3cdbff88,0 0 65px #087dff55,inset 0 0 18px #1acbe833; }
+
+/* Speech remains blue, with a distinct hue and pulse from the idle cyan. */
+.orb-wrap[data-state="speaking"] { --core-light: #6596ff; }
+#overview .orb-wrap[data-state="speaking"] .orb { background:radial-gradient(circle,#eff6ff 0 8%,#9dc4ff 16%,#3478ef 36%,#153675 62%,#061027 85%); }

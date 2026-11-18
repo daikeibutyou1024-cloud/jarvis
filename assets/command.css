@@ -909,7 +909,7 @@ body[data-current-page="overview"] #status { font-size:11px;line-height:1.6;max-
 }
 
 /* Recording state is explicit on both microphone controls. */
-#mic-command[aria-pressed="true"], #orb-voice[aria-pressed="true"] { color:#ff294d; border-color:#ff294d; }
+#mic-command[aria-pressed="true"], #orb-voice[data-state="listening"] { color:#ff294d; border-color:#ff294d; }
 
 #activity-dashboard form,#activity-finance form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;margin:16px 0}#activity-dashboard article,#activity-finance article{padding:12px;border-bottom:1px solid #526172;overflow-wrap:anywhere}#activity-dashboard input,#activity-finance input,#activity-dashboard select,#activity-finance select{width:100%;box-sizing:border-box}#activity-home p,#activity-projects p{overflow-wrap:anywhere}#activity-trends meter{width:min(100%,320px)}
 
@@ -989,3 +989,27 @@ body[data-current-page="overview"] #status {
   #overview .home-summary-stat { font-size: 11px; }
   #overview .home-report-body button { min-height: 42px; padding: 8px 10px; }
 }
+
+/* Orb-first HOME. Input/settings share the core; the conversation log ends HOME. */
+#overview .command-center { display:flex; flex-direction:column; gap:12px; max-width:900px; margin:0 auto; }
+#overview .command-center > .hud-core-stage { order:0; min-height:300px; }
+#overview .command-center > .hud-system { order:1; display:block; width:100%; box-sizing:border-box; }
+#overview .hud-system > summary { cursor:pointer; min-height:36px; color:#8cdeee; font-size:12px; }
+#overview .hud-system:not([open]) > :not(summary) { display:none; }
+#overview .core { width:100%; }
+#overview #manual-input, #overview #voice-settings { width:min(100%,620px); text-align:left; margin:0 auto; }
+#voice-settings > summary { cursor:pointer; min-height:40px; display:flex; align-items:center; color:#8cdeee; font-size:12px; }
+#manual-input .command-row { display:flex; flex-wrap:wrap; gap:8px; }
+#manual-input #command { flex:1; min-width:120px; }
+#voice-start, #voice-stop { display:none; }
+#overview #home-communication { margin-top:16px; box-sizing:border-box; }
+#weather-menu { margin:12px 0; min-width:0; }
+#weather-menu > summary { cursor:pointer; min-height:44px; padding:10px; font-size:12px; color:#8cdeee; }
+#weather-menu .weather-compact { padding:10px!important; }
+#weather-menu .weather-heading span { display:block; margin:4px 0; }
+#weather-menu .weather-hourly { max-width:100%; }
+@media(max-width:700px) { #overview .command-center > .hud-core-stage { min-height:260px; } }
+
+.sidebar { overflow-y:auto; overscroll-behavior:contain; }
+
+#overview #manual-input, #overview #voice-settings { padding:0; border:0; }

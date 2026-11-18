@@ -3,7 +3,9 @@ export function initHomeCenter() {
   const $=id=>document.getElementById(id), core=$('orb-voice');
   const chat=document.querySelector('.panel.chat');
   $('history-chat-slot').append(chat);
-  $('home-command').insertBefore($('voice-conversation-controls'),$('manual-input'));
+  $('voice-settings').prepend($('voice-conversation-controls'));
+  $('weather-menu').append($('home-weather'));
+  $('overview').append($('home-communication'));
   $('manual-input').append($('chat-form'));
   $('voice-options').append($('speak').closest('label'));
   $('voice-options').append($('stop-speech'));

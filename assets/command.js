@@ -1178,7 +1178,11 @@ $("voice-start").onclick=startVoiceConversation;
 $("voice-stop").onclick=()=>voiceConversation.stop();
 document.addEventListener("visibilitychange",()=>{if(document.hidden){stopDictation();if(voiceConversation.active)voiceConversation.stop("画面が非表示になったため停止しました。戻ったら再開してください");}});
 window.addEventListener("pagehide",()=>{stopDictation();voiceConversation.stop();});
-$("orb-voice").onclick = () => voiceConversation.active ? voiceConversation.stop() : startVoiceConversation();
+$("orb-voice").onclick = () => {
+ if(voiceConversation.active)voiceConversation.stop();
+ else if($("orb-voice").dataset.state==="speaking")$("stop-speech").click();
+ else startVoiceConversation();
+};
 $("mic-command").onclick = voice;
 renderDrafts();
 renderMetrics();
