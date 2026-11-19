@@ -985,7 +985,7 @@ function message(role, text) {
 const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
 function speakVoiceReply(text){const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":text.includes("【Claude実AI・1回テスト】")?"クロードの実AIテストの回答です。":"";return spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"));}
 function speak(text){if($("speak").checked)void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
-const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。J.A.R.V.I.S.です。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
+const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。ジャービスです。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
 if(location.hash===""||location.hash==="#overview")window.addEventListener("load",()=>{if(!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
 $("welcome-start").onclick=async()=>{const startAfter=$("welcome-conversation").checked;voiceConversation?.stop("起動の挨拶を再生します。マイクは停止中です。");const played=await welcome.play({userInitiated:true});if(played&&startAfter&&!document.hidden)void voiceConversation.startConversation();};
 $("stop-speech").onclick=()=>{welcome.cancel();if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");speechOutput.stop();};
