@@ -1,3 +1,4 @@
+import {initBitbankMarket} from './bitbank-market-ui.js';
 import {initBitbank} from './bitbank-ui.js';
 import {assetIntent} from '../lib/bitbank-report.js';
 import {initQuickDraft} from './quick-draft.js';
@@ -1200,6 +1201,7 @@ for(const id of ['topic','audience','notes','format','output','editorial-idea','
 new MutationObserver(()=>prototypeFlow.refresh()).observe($("research-records"),{childList:true,subtree:true});
 prototypeFlow.refresh();
 
+initBitbankMarket({request});
 bitbankUI=initBitbank({request,say});
 memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:items=>{
  if(!history.length&&!$("conversation").querySelector('.message'))for(const item of items.slice(-3)){

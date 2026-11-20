@@ -1016,3 +1016,19 @@ body[data-current-page="overview"] #status {
 
 #welcome-status:empty { display:none; }
 #welcome-status { font-size:12px; color:#a4e4f3; }
+
+#overview .command-center > #market-panel { order:1;width:100%;box-sizing:border-box;min-width:0;padding:14px; }
+#market-panel h3 { font-size:15px;margin:0 0 10px; }
+#market-panel p,#market-alert-list { font-size:12px;line-height:1.6;overflow-wrap:anywhere; }
+#market-svg { display:block;width:100%;height:auto;min-height:150px;background:#060f19; }
+.market-controls { display:flex;gap:8px;align-items:end;flex-wrap:wrap; }
+#market-panel input,#market-panel select { max-width:100%;box-sizing:border-box; }
+#market-panel input[type=range] { width:100%; }
+#market-alert-form { display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px; }
+#market-panel .hud-clock { margin:8px 0 0;border:0;padding:0; }
+#market-panel .hud-clock time { font-size:14px; }
+#market-panel details { margin:8px 0; }
+
+#overview .command-center > .hud-system { order:2; }
+.market-chart-viewport { width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain; }
+#market-svg { min-width:660px; }

@@ -1,0 +1,33 @@
+import {PERIODS} from '../lib/bitbank-market.js';
+import {readAlerts,saveAlertRule,evaluateAlert} from './market-alerts.js';
+const NS='http://www.w3.org/2000/svg',f=n=>Number.isFinite(n)?n.toLocaleString('ja-JP',{maximumFractionDigits:2}):'未取得';
+export function drawMarket(svg,data){
+ svg.replaceChildren();const view=data.bars.map((b,i)=>({...b,...data.series[i]})).filter(b=>b.time>=data.displayStart);if(!view.length)return [];
+ const add=(tag,attrs,text)=>{const n=document.createElementNS(NS,tag);for(const [k,v]of Object.entries(attrs))n.setAttribute(k,String(v));if(text)n.textContent=text;svg.append(n);return n;};
+ const lo=Math.min(...view.map(b=>Math.min(b.low,b.ma20??b.low,b.ma50??b.low))),hi=Math.max(...view.map(b=>Math.max(b.high,b.ma20??b.high,b.ma50??b.high))),span=hi-lo||Math.max(hi*.01,1),volume=Math.max(...view.map(b=>b.volume),1),w=800/view.length,x=i=>60+(i+.5)*w,y=p=>225-(p-lo)/span*200;
+ for(let j=0;j<5;j++){const py=25+j*50;add('line',{x1:60,x2:865,y1:py,y2:py,stroke:'#173345'});add('text',{x:2,y:py+4,fill:'#8eaebc','font-size':14},(hi-j*span/4).toLocaleString('ja-JP',{notation:'compact',maximumFractionDigits:2})+'円');}
+ view.forEach((b,i)=>{const color=b.close>=b.open?'#45d8b1':'#ef7788';add('line',{x1:x(i),x2:x(i),y1:y(b.high),y2:y(b.low),stroke:color});add('rect',{x:x(i)-Math.max(1,w*.6)/2,y:Math.min(y(b.open),y(b.close)),width:Math.max(1,w*.6),height:Math.max(1,Math.abs(y(b.open)-y(b.close))),fill:color});add('rect',{x:x(i)-Math.max(1,w*.6)/2,y:310-b.volume/volume*55,width:Math.max(1,w*.6),height:b.volume/volume*55,fill:color,opacity:.65});});
+ for(const [key,color]of [['ma20','#f1d272'],['ma50','#74bfff']]){const pts=view.flatMap((b,i)=>Number.isFinite(b[key])?[`${x(i)},${y(b[key])}`]:[]);if(pts.length)add('polyline',{points:pts.join(' '),fill:'none',stroke:color,'stroke-width':1.8});}
+ add('text',{x:60,y:245,fill:'#8eaebc','font-size':11},'出来高 BTC');for(const [b,pos,anchor]of [[view[0],60,'start'],[view.at(-1),860,'end']])add('text',{x:pos,y:337,fill:'#8eaebc','font-size':16,'text-anchor':anchor},new Date(b.time).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}));return view;
+}
+export function initBitbankMarket({request}){
+ const $=id=>document.getElementById(id),panel=$('market-panel');
+ const host=/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname)||['localhost','127.0.0.1'].includes(location.hostname);
+ if(!host)return;document.querySelector('.hud-core-stage').after(panel);$('market-clock').append(document.querySelector('.hud-clock'));panel.hidden=false;let busy=false,view=[];
+ const status=text=>$('market-status').textContent=text;
+ function log(d){$('market-alert-list').replaceChildren();for(const e of d.events.slice(-10).reverse()){const li=document.createElement('li');li.textContent=`${new Date(e.evaluatedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})} JST / ${e.kind} / ${e.type} / 価格${f(e.close)}円 / RSI${f(e.rsi)} / 条件 RSI≤${e.condition.maxRSI}・価格≤${e.condition.maxPrice??'指定なし'}・出来高比≥${e.condition.minVolume}`;$('market-alert-list').append(li);}}
+ try{const d=readAlerts(localStorage);$('market-alert-enabled').checked=d.rule.enabled;$('market-alert-kind').value=d.rule.kind;$('market-alert-rsi').value=d.rule.maxRSI;$('market-alert-price').value=d.rule.maxPrice??'';$('market-alert-volume').value=d.rule.minVolume;log(d);}catch{$('market-alert-status').textContent='通知記録を読み込めません。既存記録は上書きしません。';}
+ $('market-alert-form').onsubmit=async e=>{e.preventDefault();try{const d=await saveAlertRule(localStorage,navigator.locks,{enabled:$('market-alert-enabled').checked,kind:$('market-alert-kind').value,maxRSI:$('market-alert-rsi').value,maxPrice:$('market-alert-price').value,minVolume:$('market-alert-volume').value});log(d);$('market-alert-status').textContent='端末内に条件を保存しました。次の手動取得時だけ判定します。外部通知・定期実行はありません。';}catch(error){$('market-alert-status').textContent=error.message;}};
+ const detail=i=>{const b=view[i];if(b)$('market-candle-detail').textContent=`${new Date(b.time).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})} JST / 始${f(b.open)} 高${f(b.high)} 安${f(b.low)} 終${f(b.close)}円 / 出来高${f(b.volume)} BTC`;};
+ $('market-candle-index').oninput=e=>detail(Number(e.target.value));$('market-svg').onclick=e=>{const r=e.currentTarget.getBoundingClientRect(),i=Math.floor(((e.clientX-r.left)/r.width*900-60)/800*view.length);if(i>=0&&i<view.length){$('market-candle-index').value=i;detail(i);}};
+ async function load(){if(busy)return;busy=true;for(const id of ['market-refresh','market-period'])$(id).disabled=true;status('bitbank公開データを取得しています…');
+ try{const period=$('market-period').value,d=await request('/api/business/bitbank-market-preview?period='+period);if(document.documentElement.dataset.environment==='production')throw Error('対象Previewのみです');if(d.mock!==false||d.pair!=='BTC/JPY')throw Error('公開データを確認できません');view=drawMarket($('market-svg'),d);$('market-candle-index').max=Math.max(0,view.length-1);$('market-candle-index').value=Math.max(0,view.length-1);$('market-candle-index').disabled=!view.length;detail(view.length-1);
+ status(`${d.source} / ${PERIODS[period].label} / ${d.type} / 確定足のみ / 取得 ${new Date(d.fetchedAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})} JST`);
+ const a=d.analysis,m=a.metrics;$('market-analysis').textContent=`${a.kind}：${a.reason} 反対のシナリオ：${a.opposite}`;
+ $('market-metrics').textContent=m?`MA20 ${f(m.ma20)} / MA50 ${f(m.ma50)}円 / RSI14 ${f(m.rsi)} / 期間変動 ${f(m.periodChange)}% / 足の変動 ${f(m.barChange)}% / 出来高比 ${f(m.volumeRatio)} / 直前20足高値 ${f(m.high20)}・安値 ${f(m.low20)}円`:'データ不足のため指標判定を保留。';
+ $('market-validation').textContent=`履歴検証：${JSON.stringify(d.validation.counts)} / 購入検討の事後比較 ${d.validation.purchaseSamples}件、次足上昇${d.validation.nextBarRises}件。${d.validation.notice}`;
+ try{const {data,candidate}=await evaluateAlert(localStorage,navigator.locks,d);log(data);$('market-alert-status').textContent=candidate?`画面内の通知候補：${candidate.kind}。保存した条件に一致しました。売買指示ではありません。`:'新しい通知候補はありません（未設定・条件不一致・保留・記録済み）。';}catch(error){$('market-alert-status').textContent=error.message;}
+ }catch(error){view=[];$('market-svg').replaceChildren();$('market-candle-detail').textContent='';$('market-candle-index').disabled=true;$('market-metrics').textContent='';$('market-validation').textContent='';$('market-analysis').textContent='保留：データ取得・検証に失敗しました。';$('market-alert-status').textContent='今回の取得では通知候補を生成しません。';status(error.message+' 自動再試行しません。');}
+ finally{busy=false;for(const id of ['market-refresh','market-period'])$(id).disabled=false;}}
+ $('market-refresh').onclick=()=>void load();$('market-period').onchange=()=>void load();
+}
