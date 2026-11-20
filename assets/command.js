@@ -1,3 +1,5 @@
+import {initBitbank} from './bitbank-ui.js';
+import {assetIntent} from '../lib/bitbank-report.js';
 import {initQuickDraft} from './quick-draft.js';
 import {initActivityReport} from './activity-report.js';
 import {dateJST} from '../lib/activity-report.js';
@@ -41,7 +43,7 @@ import {
   financeTotals,
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
-let prototypeFlow=null, voiceConversation=null;
+let prototypeFlow=null, voiceConversation=null,bitbankUI=null;
 let liveTestAllowed=false,liveTestSpent=false;
 let claudeAllowed=false;
 const claudeSelected=()=>$("claude-conversation").checked;
@@ -194,7 +196,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -210,7 +212,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -255,6 +257,8 @@ function navigate(next) {
   document.body.dataset.currentPage=page;
   if(page!=="overview" && voiceConversation?.active)voiceConversation.stop("部門を切り替えたため音声対話を停止しました");
   updateOperationalPanels(page);
+  const bitbankHost=/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname)||['127.0.0.1','localhost'].includes(location.hostname);
+  $('bitbank-panel').hidden=page!=='finance'||!bitbankHost||document.documentElement.dataset.environment==='production';
   if (page !== "overview") department = page;
   // HOME owns the existing chat and input nodes; department switching never clones them.
   $("prototype-flow").hidden = !["research","content"].includes(page);
@@ -1003,6 +1007,11 @@ async function sendChat(command,voiceMode=false) {
   if(!voiceMode)$("command").value = "";
   say("J.A.R.V.I.S.が考えています…");
   try {
+    if(assetIntent(command)){
+      const answer=await bitbankUI.report();if(epoch!==authEpoch)return null;
+      message('assistant',answer);$('ai-status').textContent='資産報告（架空・AI未使用）';say('架空データの資産報告です');
+      if(!voiceMode)speak(answer);return answer;
+    }
     const previewChat=$('chat-preview-mock').checked;
     if(claudeChat&&!claudeAllowed)throw Error('Claude通常会話は停止中です。承認状態を確認してください。');
     const liveTest=voiceMode&&liveTestSelected()&&liveTestAllowed&&!liveTestSpent;
@@ -1064,7 +1073,7 @@ async function sendChat(command,voiceMode=false) {
     return data.answer;
   } catch (error) {
     if(epoch!==authEpoch){if(voiceMode)throw Error("認証状態が変わりました。再開してください");return null;}
-    if(claudeChat){pauseClaude(error.message);if(!$("command").value.trim())$("command").value=command;}
+    if(claudeChat&&!assetIntent(command)){pauseClaude(error.message);if(!$("command").value.trim())$("command").value=command;}
     message("assistant", "通信エラー：" + error.message);
     $("ai-status").textContent = "操作失敗 / 要確認";
     say(error.message);
@@ -1191,6 +1200,7 @@ for(const id of ['topic','audience','notes','format','output','editorial-idea','
 new MutationObserver(()=>prototypeFlow.refresh()).observe($("research-records"),{childList:true,subtree:true});
 prototypeFlow.refresh();
 
+bitbankUI=initBitbank({request,say});
 memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:items=>{
  if(!history.length&&!$("conversation").querySelector('.message'))for(const item of items.slice(-3)){
   if(typeof item.user!=='string'||typeof item.assistant!=='string')continue;

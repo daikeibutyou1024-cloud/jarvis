@@ -12,6 +12,7 @@
     "simulate:b": "node --import ./tests/no-network.js simulations/run-business-day.mjs",
     "test:simulation-b": "node --import ./tests/no-network.js --test tests/business-day.test.js",
     "test:claude-conversation-browser": "node tests/claude-conversation-browser.mjs",
+    "test:bitbank-browser": "node tests/bitbank-browser.mjs",
     "test:voice-browser": "node tests/voice-conversation-browser.mjs",
     "test:memory-browser": "node tests/memory-browser.mjs",
     "test:home-browser": "node tests/home-weather-browser.mjs",
