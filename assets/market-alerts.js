@@ -12,8 +12,8 @@ export function evaluateAlert(storage,locks,market,now=Date.now()){
  return locked(locks,()=>{const d=readAlerts(storage),a=market.analysis,m=a.metrics,r=d.rule;
   if(!r.enabled||a.kind==='保留'||!m||a.kind!==r.kind||m.rsi>r.maxRSI||m.volumeRatio<r.minVolume||(r.maxPrice!==null&&m.close>r.maxPrice))return {data:d,candidate:null};
   if(!Number.isSafeInteger(a.closedAt)||a.closedAt>now||now-a.closedAt>market.step*2)throw Error('古い判定による通知を保留しました');
-  const key=JSON.stringify([market.pair,market.type,a.closedAt,r]);if(d.events.some(e=>e.key===key))return {data:d,candidate:null};if(d.events.length>=100)throw Error('通知記録が100件に達しました。既存履歴を保護して追加を停止します。');
-  const event={key,condition:{...r},configuredAt:d.configuredAt,evaluatedAt:now,candleClosedAt:a.closedAt,pair:market.pair,type:market.type,kind:a.kind,close:m.close,rsi:m.rsi,volumeRatio:m.volumeRatio,reason:a.reason};
+  const sourceId=market.sourceId||'bitbank',key=JSON.stringify([sourceId,market.pair,market.type,a.closedAt,r]),legacyKey=JSON.stringify([market.pair,market.type,a.closedAt,r]);if(d.events.some(e=>e.key===key||(sourceId==='bitbank'&&e.key===legacyKey)))return {data:d,candidate:null};if(d.events.length>=100)throw Error('通知記録が100件に達しました。既存履歴を保護して追加を停止します。');
+  const event={key,sourceId,sourceName:market.source||'bitbank',condition:{...r},configuredAt:d.configuredAt,evaluatedAt:now,candleClosedAt:a.closedAt,pair:market.pair,type:market.type,kind:a.kind,close:m.close,rsi:m.rsi,volumeRatio:m.volumeRatio,reason:a.reason};
   d.events.push(event);store(storage,d);return {data:d,candidate:event};
  });
 }
