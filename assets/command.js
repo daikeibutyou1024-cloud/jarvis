@@ -1,3 +1,4 @@
+import {initLivePrice} from './live-price-ui.js';
 import {initBitbankMarket} from './bitbank-market-ui.js';
 import {initBitbank} from './bitbank-ui.js';
 import {assetIntent} from '../lib/bitbank-report.js';
@@ -44,7 +45,7 @@ import {
   financeTotals,
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
-let prototypeFlow=null, voiceConversation=null,bitbankUI=null;
+let prototypeFlow=null, voiceConversation=null,bitbankUI=null,livePrice=null;
 let liveTestAllowed=false,liveTestSpent=false;
 let claudeAllowed=false;
 const claudeSelected=()=>$("claude-conversation").checked;
@@ -128,6 +129,7 @@ function unlockSessionUI(expiresAt){
   sessionExpiryTimer=setTimeout(()=>{sessionReady=false;voiceConversation?.stop('セッション期限切れのため停止しました');lockSessionUI();},expiresAt-Date.now());
 }
 function lockSessionUI(){
+ livePrice?.suspendAuth();
  if(!sessionMode)return;document.querySelector('main').inert=true;
  if(sessionGate)return;sessionGate=document.createElement('section');sessionGate.className='session-gate';const p=document.createElement('p'),b=document.createElement('button');p.textContent='管理者ログインが必要です。保存した端末データは削除しません。';b.textContent='ログインする';b.onclick=()=>authenticate().catch(e=>say(e.message));sessionGate.append(p,b);document.body.append(sessionGate);
 }
@@ -197,7 +199,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -213,7 +215,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -1202,6 +1204,7 @@ new MutationObserver(()=>prototypeFlow.refresh()).observe($("research-records"),
 prototypeFlow.refresh();
 
 initBitbankMarket({request});
+if(/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname)||['localhost','127.0.0.1'].includes(location.hostname))livePrice=initLivePrice({isAuthorized:()=>sessionMode?sessionReady:!!password});
 bitbankUI=initBitbank({request,say});
 memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:items=>{
  if(!history.length&&!$("conversation").querySelector('.message'))for(const item of items.slice(-3)){

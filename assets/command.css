@@ -1032,3 +1032,12 @@ body[data-current-page="overview"] #status {
 #overview .command-center > .hud-system { order:2; }
 .market-chart-viewport { width:100%;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain; }
 #market-svg { min-width:660px; }
+
+#live-price-panel { border:1px solid #234252;border-radius:10px;padding:12px;margin:10px 0 16px;background:#071823; }
+.ticker-value { display:flex;align-items:center;gap:8px;min-width:0; }
+#ticker-price { font-size:clamp(27px,5.5vw,46px);font-weight:700;line-height:1.4;color:#c5f4ff;font-variant-numeric:tabular-nums;overflow-wrap:anywhere; }
+#ticker-price.price-up { color:#45d8b1; }
+#ticker-price.price-down { color:#ff7c90; }
+#ticker-price.price-old { color:#8098a3; }
+#ticker-direction { font-size:24px;color:#c5f4ff; }
+#live-price-panel p { margin:5px 0; }
