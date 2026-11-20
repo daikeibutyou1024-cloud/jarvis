@@ -1,0 +1,19 @@
+// Native Cloudflare workerd regression. Upstream responses are synthetic; external I/O is intercepted.
+import assert from 'node:assert/strict';import {createRequire} from 'node:module';import {resolve} from 'node:path';import {fileURLToPath} from 'node:url';import {marketFixture,rawRows} from './bitbank-market-fixture.js';
+const require=createRequire(import.meta.url),modules=process.env.CODEX_PRIMARY_RUNTIME_NODE_MODULES;
+const load=name=>modules?require(resolve(modules,name)):require(name),m=load('miniflare'),{build}=load('esbuild'),root=fileURLToPath(new URL('..',import.meta.url));
+const now=Date.parse('2026-01-02T12:30:00Z'),fixture=marketFixture('year',now),calls=[];let redirect=false;
+const bundle=await build({stdin:{contents:`import {fetchMarket} from './lib/bitbank-public.js';import {marketFailure} from './lib/market-error.js';export default {async fetch(request){const u=new URL(request.url);if(u.pathname==='/constructor'){try{new Request('https://public.bitbank.cc/',{redirect:'error'});return Response.json({rejected:false});}catch(e){return Response.json({rejected:true,name:e.name,invalidRedirect:e.message.includes('Invalid redirect')});}}try{return Response.json(await fetchMarket('year',${now},u.searchParams.get('source')||'bitbank'));}catch(e){return Response.json(marketFailure(e),{status:503});}}};`,resolveDir:root},bundle:true,format:'esm',platform:'neutral',write:false});
+const options={modules:true,compatibilityDate:'2026-10-30',script:bundle.outputFiles[0].text,outboundService:async req=>{
+ const u=new URL(req.url);calls.push(u.href);assert(['public.bitbank.cc','api.coin.z.com'].includes(u.hostname));assert.equal(req.method,'GET');for(const key of ['cookie','authorization','x-api-key','access-key','access-signature'])assert.equal(req.headers.has(key),false);
+ if(redirect)return new Response('',{status:302,headers:{location:'https://never-follow.invalid/'}});
+ const year=Number(u.hostname==='public.bitbank.cc'?u.pathname.split('/').at(-1):u.searchParams.get('date')),bars=fixture.bars.filter(b=>new Date(b.time).getUTCFullYear()===year);
+ return u.hostname==='public.bitbank.cc'?Response.json({success:1,data:{candlestick:[{type:'1day',ohlcv:rawRows(bars)}]}}):Response.json({status:0,data:bars.map(b=>({openTime:String(b.time),open:String(b.open),high:String(b.high),low:String(b.low),close:String(b.close),volume:String(b.volume)}))});
+}};
+const mf=new m.Miniflare(m.convertV4MiniflareOptions?m.convertV4MiniflareOptions(options):options);
+try{
+ const before=await (await mf.dispatchFetch('http://localhost/constructor')).json();assert.deepEqual(before,{rejected:true,name:'TypeError',invalidRedirect:true});assert.equal(calls.length,0);
+ for(const source of ['bitbank','gmo']){const r=await mf.dispatchFetch('http://localhost/?source='+source),d=await r.json();assert.equal(r.status,200);assert.equal(d.sourceId,source);assert(d.bars.length>365);assert(Number.isFinite(d.series.at(-1).ma20));assert(Number.isFinite(d.series.at(-1).ma50));assert.equal(d.bars.at(-1).volume,fixture.bars.at(-1).volume);}
+ assert.equal(calls.length,6);redirect=true;const prior=calls.length,r=await mf.dispatchFetch('http://localhost/?source=bitbank'),d=await r.json();assert.equal(r.status,503);assert.equal(d.diagnostic.code,'REDIRECT_BLOCKED');assert.equal(d.diagnostic.httpStatus,302);assert.equal(calls.length,prior+1);assert(!calls.some(u=>u.includes('never-follow')));
+ console.log(JSON.stringify({passed:true,runtime:'workerd',compatibilityDate:'2026-10-30',checks:'unsupported mode fails before I/O,actual adapter runs for both APIs,year+MA20/50+volume,3xx blocked without follow',interceptedRequests:calls.length,realMarketData:false}));
+}finally{await mf.dispose();}

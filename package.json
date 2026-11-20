@@ -12,6 +12,7 @@
     "simulate:b": "node --import ./tests/no-network.js simulations/run-business-day.mjs",
     "test:simulation-b": "node --import ./tests/no-network.js --test tests/business-day.test.js",
     "test:claude-conversation-browser": "node tests/claude-conversation-browser.mjs",
+    "test:market-runtime": "node tests/market-runtime.mjs",
     "test:market-browser": "node tests/bitbank-market-browser.mjs",
     "test:bitbank-browser": "node tests/bitbank-browser.mjs",
     "test:voice-browser": "node tests/voice-conversation-browser.mjs",

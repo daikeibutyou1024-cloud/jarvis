@@ -1,3 +1,19 @@
+## 両APIのNETWORK/fetch障害：Cloudflare実行環境での原因特定
+
+Cloudflare PagesのPreview互換日付は2026-10-30、compatibility flagsなし。元の公開fetchの `redirect: "error"` はCloudflare Workers/workerd未対応で、Request構築時にTypeErrorとなる。Nodeのfetch標準・模擬fetchでは通るため既存単体テストはこの環境差を捕捉できていなかった。
+
+Cloudflare公式仕様：https://developers.cloudflare.com/workers/runtime-apis/request/
+
+同じ互換日付で実際のworkerdに既存adapterを実行し、bitbank/GMOとも NETWORK・stage=fetch、上流への到達0回を再現した。従ってこの設定での失敗はDNS・TLS・API応答・CORSより前の問題。設定を `redirect: "manual"` に変更し、3xxはREDIRECT_BLOCKEDとして明示拒否する。転送先へは接続せず、TLS検証も緩和しない。
+
+新しい `npm run test:market-runtime` はworkerdでRequest設定の拒否、修正後の両adapterで1年分・MA20/50・出来高の処理、3xx追跡禁止を検証する。上流はテスト内で架空応答に置換しているため、このテストを実市場データ取得成功と扱わない。実データへのfallbackではなく、テスト専用の代替である。
+
+提示された診断ID `38bf4a80-5f51-4d25-8cd4-41029dec41ca` は、従来のコードがHTTP応答にだけ付与してconsoleログへ出していなかったため過去のログとの突合はできない。Cloudflareのリアルタイムログセッションの作成権限は確認できたが、tail.developers.workers.devへの接続は作業環境のプロキシで利用できず、ログ本文は取得していない。確認用のログセッションは閉じた。ログ保存や有料設定の有効化は行っていない。
+
+今後はmarket_errorイベントに、HTTP応答と同じdiagnosticId、段階・コード・取得元・HTTP/APIコードだけを記録する。Cookie・ヘッダー・鍵・応答本文・例外の原文は出さない。将来のruntimeログで画面の診断IDと照合できる。
+
+実際の外部HTTPS取得の成功は、Preview応答の取得時刻・取得元・採用件数を確認して初めて報告する。作業環境の外部接続制限と、今回のworkerd設定不具合は別の問題として扱う。Production・main・DB・既存認証・Cloudflare互換設定は変更しない。
+
 > 取得障害への更新：HTTP・APIコード・JSON/MIME・時刻/値検証・timeoutを区別する診断を追加。取得元をbitbankからGMOコインへ手動変更できる。どちらも実データ取得専用で、架空データへのfallbackや自動切替はない。以下のbitbank専用記述には、この節の更新内容を優先する。
 
 ## 取得障害の調査・修正
