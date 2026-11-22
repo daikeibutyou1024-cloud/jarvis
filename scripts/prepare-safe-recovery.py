@@ -7,7 +7,9 @@ SOURCE_FILES=['release/recovery/worker-template.mjs','release/recovery/index.htm
 FORBIDDEN='658b3bcef0c389cfe945d33bff6e6b9b88e09fa5'
 def sha(data):return hashlib.sha256(data).hexdigest()
 def source(commit):
- full=subprocess.check_output(['git','rev-parse','--verify',commit+'^{commit}'],cwd=ROOT,text=True).strip()
+ if commit==FORBIDDEN or (len(commit)>=7 and FORBIDDEN.startswith(commit)):raise ValueError('658b3bc is not a safe recovery source')
+ try:full=subprocess.check_output(['git','rev-parse','--verify',commit+'^{commit}'],cwd=ROOT,text=True,stderr=subprocess.DEVNULL).strip()
+ except subprocess.CalledProcessError:raise ValueError('Recovery source commit is unavailable') from None
  if full==FORBIDDEN:raise ValueError('658b3bc is not a safe recovery source')
  blobs={p:subprocess.check_output(['git','show',full+':'+p],cwd=ROOT,stderr=subprocess.DEVNULL) for p in SOURCE_FILES}
  return full,blobs

@@ -1,3 +1,5 @@
+import {marketReportIntent} from '../lib/btc-market-report.js';
+import {initBTCReport} from './btc-report-ui.js';
 import {initLivePrice} from './live-price-ui.js';
 import {initBitbankMarket} from './bitbank-market-ui.js';
 import {initBitbank} from './bitbank-ui.js';
@@ -45,7 +47,7 @@ import {
   financeTotals,
 } from "./business.js";
 let memoryUI=null, authEpoch=0;
-let prototypeFlow=null, voiceConversation=null,bitbankUI=null,livePrice=null;
+let prototypeFlow=null, voiceConversation=null,bitbankUI=null,btcReportUI=null,livePrice=null;
 let liveTestAllowed=false,liveTestSpent=false;
 let claudeAllowed=false;
 const conversationEndpoint=()=>document.documentElement.dataset.environment==='production'?'/api/business/chat-conversation':'/api/business/chat-claude-preview';
@@ -205,7 +207,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -221,7 +223,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -998,7 +1000,7 @@ function message(role, text) {
   root.append(p);
   root.scrollTop = root.scrollHeight;
 }
-let lastSpokenReply='',replyEpoch=0;
+let lastSpokenReply='',replyEpoch=0,replyKind='';
 try{$('speak').checked=localStorage.getItem('jarvis.speech.preference.v1')==='on';}catch{}
 $('speak').addEventListener('change',()=>{try{localStorage.setItem('jarvis.speech.preference.v1',$('speak').checked?'on':'off');}catch{say('読み上げ設定を保存できませんでした。今回の設定は有効です。');}});
 const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
@@ -1014,6 +1016,7 @@ $("stop-speech").onclick=()=>{welcome.cancel();if(voiceConversation?.active)voic
 async function sendChat(command,voiceMode=false) {
   if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声対話を再開してください");return null;}
   command=command.trim();
+  replyKind=marketReportIntent(command)?'market':'';
   if (!command) return null;
   try{rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});}catch{const error=Error("認証情報の可能性があるため送信・記憶しません。入力を確認してください");say(error.message);if(voiceMode)throw error;return null;}
   const epoch=authEpoch,claudeChat=claudeSelected();
@@ -1022,6 +1025,7 @@ async function sendChat(command,voiceMode=false) {
   if(!voiceMode)$("command").value = "";
   say("J.A.R.V.I.S.が考えています…");
   try {
+    if(marketReportIntent(command)){const answer=await btcReportUI.report();if(epoch!==authEpoch)return null;message('assistant',answer);$('ai-status').textContent='BTC公開市場レポート・Claude不使用';if(!voiceMode)speak(answer);return answer;}
     if(assetIntent(command)){
       const answer=await bitbankUI.report();if(epoch!==authEpoch)return null;
       message('assistant',answer);$('ai-status').textContent='資産報告（架空・AI未使用）';say('架空データの資産報告です');
@@ -1107,10 +1111,10 @@ voiceConversation=createVoiceSession({
  getText:()=>$("command").value,
  onText:text=>{$("manual-input").open=true;$("command").value=text;},
  cancelSpeech:()=>{welcome.cancel();speechOutput.stop();},
- authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>((claudeSelected()&&claudeAllowed)||(document.documentElement.dataset.environment!=="production"&&($("chat-preview-mock").checked||(liveTestSelected()&&liveTestAllowed&&!liveTestSpent)))),singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
+ authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>document.documentElement.dataset.environment!=="production"||(claudeSelected()&&claudeAllowed),singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>replyKind==='market'?'BTC公開データ（Claude不使用）':(!$("chat-preview-mock").checked&&!claudeSelected()&&!liveTestSelected())?'BTC報告専用（実AI停止中）':claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{const labels={idle:'停止中',paused:'再開待ち',starting:'マイク準備中',authorizing:'認証中',listening:'聞き取り中',stopping:'発話確定中',finalizing:'発話確定中',processing:'考え中',speaking:'読み上げ中'};$('voice-phase').textContent=(labels[state]||state)+' / '+(voiceConversation?.mode==='dictation'?'文字起こし専用':claudeSelected()?'Claude実AI':liveTestSelected()?'Claude実AI・1回テスト':document.documentElement.dataset.environment==='production'?'実AI停止中':'Previewモック');$('voice-resume').hidden=state!=='paused';$('conversation-end').hidden=['idle','paused','error'].includes(state);if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
+ onState:(state,text)=>{coreState.set('thinking',state==='processing');const labels={idle:'停止中',paused:'再開待ち',starting:'マイク準備中',authorizing:'認証中',listening:'聞き取り中',stopping:'発話確定中',finalizing:'発話確定中',processing:'考え中',speaking:'読み上げ中'};$('voice-phase').textContent=(labels[state]||state)+' / '+(voiceConversation?.mode==='dictation'?'文字起こし専用':replyKind==='market'?'BTC公開データ（Claude不使用）':claudeSelected()?'Claude実AI':liveTestSelected()?'Claude実AI・1回テスト':document.documentElement.dataset.environment==='production'?'実AI停止中':!$('chat-preview-mock').checked?'BTC報告専用（実AI停止中）':'Previewモック');$('voice-resume').hidden=state!=='paused';$('conversation-end').hidden=['idle','paused','error'].includes(state);if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
 });
 function voice(){
  if(busy)return say("処理終了後に音声入力してください");
@@ -1218,6 +1222,7 @@ prototypeFlow.refresh();
 initBitbankMarket({request});
 if(/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname)||['localhost','127.0.0.1'].includes(location.hostname))livePrice=initLivePrice({isAuthorized:()=>sessionMode?sessionReady:!!password});
 bitbankUI=initBitbank({request,say});
+btcReportUI=initBTCReport({request,say});
 memoryUI=initMemoryUI({request,say,getHasHistory:()=>history.length>0,onHistory:items=>{
  if(!history.length&&!$("conversation").querySelector('.message'))for(const item of items.slice(-3)){
   if(typeof item.user!=='string'||typeof item.assistant!=='string')continue;
