@@ -207,7 +207,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -223,7 +223,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -1000,19 +1000,53 @@ function message(role, text) {
   root.append(p);
   root.scrollTop = root.scrollHeight;
 }
-let lastSpokenReply='',replyEpoch=0,replyKind='';
-try{$('speak').checked=localStorage.getItem('jarvis.speech.preference.v1')==='on';}catch{}
-$('speak').addEventListener('change',()=>{try{localStorage.setItem('jarvis.speech.preference.v1',$('speak').checked?'on':'off');}catch{say('読み上げ設定を保存できませんでした。今回の設定は有効です。');}});
-const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
-function speakVoiceReply(text){lastSpokenReply=text;const token=++replyEpoch;$('reply-replay').hidden=true;const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":text.includes("【Claude実AI・1回テスト】")?"クロードの実AIテストの回答です。":"";return (spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"))).catch(error=>{if(token===replyEpoch&&!/停止しました/.test(error.message))$('reply-replay').hidden=false;throw error;});}
-function speak(text){if($("speak").checked)void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
-const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。ジャービスです。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
-if(location.hash===""||location.hash==="#overview")window.addEventListener("load",()=>{if(!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
-$("welcome-start").onclick=async()=>{const startAfter=$("welcome-conversation").checked;voiceConversation?.stop("起動の挨拶を再生します。マイクは停止中です。");const played=await welcome.play({userInitiated:true});if(played&&startAfter&&!document.hidden)void voiceConversation.startConversation();};
-$('reply-replay').onclick=()=>{if(busy||document.hidden||!lastSpokenReply)return;voiceConversation?.stop('回答を再生します。送信は行いません。');void speakVoiceReply(lastSpokenReply).catch(e=>say(e.message));};
-$('voice-resume').onclick=()=>void voiceConversation.startConversation();
-$('conversation-end').onclick=()=>{replyEpoch++;voiceConversation.stop();};
-$("stop-speech").onclick=()=>{welcome.cancel();if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");speechOutput.stop();};
+let lastSpokenReply='',lastFailedSpoken='',replyEpoch=0,replyKind='',voiceStartEpoch=0,preparingVoice=false;
+$('speak').checked=true;
+try{$('speak').checked=localStorage.getItem('jarvis.speech.preference.v1')!=='off';}catch{}
+const audioStatus=text=>{$('audio-output-status').textContent=text;};
+const preferenceStatus=()=>audioStatus($('speak').checked?'音声ON：回答を日本語で読み上げます。':'音声OFF：自動再生しません。「音声で再生」は利用できます。');
+preferenceStatus();
+const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,canSpeak:()=>!document.hidden&&!voiceConversation?.recognizing,track:u=>{coreState.clearError();coreState.trackSpeech(u);},onStop:()=>coreState.stopSpeech()});
+function cancelVoiceStart(){const wasPreparing=preparingVoice;voiceStartEpoch++;preparingVoice=false;if(wasPreparing&&!voiceConversation?.active){$('conversation-end').hidden=true;$('voice-phase').textContent='停止中';}}
+function speakVoiceReply(text,{manual=false}={}){
+ if(!manual){lastSpokenReply=text;lastFailedSpoken='';}
+ const token=++replyEpoch;$('reply-replay').hidden=true;
+ if(document.hidden){$('reply-replay').hidden=false;audioStatus('画面が非表示のため自動再生しません。「音声で再生」を利用してください。');return Promise.resolve();}
+ if(!manual&&!$('speak').checked){$('reply-replay').hidden=false;preferenceStatus();return Promise.resolve();}
+ const spoken=spokenText(text),label=text.includes('【Previewモック】')?'プレビューのモック回答です。':text.includes('【Claude実AI・1回テスト】')?'クロードの実AIテストの回答です。':'';
+ const output=manual&&lastFailedSpoken?lastFailedSpoken:label+spoken;
+ audioStatus('日本語音声を再生しています…');
+ return (spoken?speechOutput.speak(output,{userInitiated:manual}):Promise.reject(Error('読み上げる文章がありません'))).then(()=>{if(token===replyEpoch){lastFailedSpoken='';preferenceStatus();}},error=>{if(token===replyEpoch&&!/停止しました/.test(error.message)){lastFailedSpoken=speechOutput.remainingText;$('reply-replay').hidden=false;audioStatus(error.message);}throw error;});
+}
+function speak(text){void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
+function startCoreConversation(){
+ if(preparingVoice){cancelVoiceStart();speechOutput.stop();audioStatus('音声の準備を停止しました。');return;}
+ if(document.hidden||page!=='overview'||busy)return;
+ welcome.cancel();
+ if($('speak').checked&&!speechOutput.ready){
+  const token=++voiceStartEpoch,auth=authEpoch;preparingVoice=true;$('voice-phase').textContent='音声準備中';audioStatus('音声を準備しています。短い開始案内の後にマイクを起動します。');$('conversation-end').hidden=false;
+  // Audible preparation is called synchronously inside the actual tap, before authentication.
+  const preparation=speechOutput.prepare({text:'音声会話を開始します。'});
+  void preparation.catch(error=>{if(token===voiceStartEpoch)audioStatus(error.message);}).then(()=>{if(token!==voiceStartEpoch||auth!==authEpoch||document.hidden||page!=='overview')return;preparingVoice=false;void voiceConversation.startConversation();});
+ }else{if($('speak').checked)void speechOutput.prepare().catch(e=>audioStatus(e.message));void voiceConversation.startConversation();}
+}
+const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:'おかえりなさい。ジャービスです。今日もよろしくお願いします。',onFallback:show=>{$('welcome-start').hidden=!show;$('welcome-status').textContent=show?'自動再生できませんでした。起動ボタンで挨拶を再生できます。':'';}});
+if(location.hash===''||location.hash==='#overview')window.addEventListener('load',()=>{if($('speak').checked&&!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
+$('speak').addEventListener('change',()=>{
+ const wasRecognizing=voiceConversation?.recognizing;cancelVoiceStart();welcome.cancel();voiceConversation?.stop('音声設定を変更しました。会話は停止しました。');speechOutput.stop();
+ try{localStorage.setItem('jarvis.speech.preference.v1',$('speak').checked?'on':'off');}catch{say('読み上げ設定を保存できませんでした。今回の設定は有効です。');}
+ preferenceStatus();if($('speak').checked&&!wasRecognizing)void speechOutput.prepare({text:'音声をオンにしました。'}).catch(e=>audioStatus(e.message));
+});
+$('welcome-start').onclick=async()=>{cancelVoiceStart();const startAfter=$('welcome-conversation').checked;voiceConversation?.stop('起動の挨拶を再生します。マイクは停止中です。');const played=await welcome.play({userInitiated:true});if(played&&startAfter&&!document.hidden)startCoreConversation();};
+$('reply-replay').onclick=()=>{
+ if(busy||document.hidden||!lastSpokenReply)return;cancelVoiceStart();
+ const wasRecognizing=voiceConversation?.recognizing;voiceConversation?.stop('音声入力を停止しました。回答の再生はAPIを送信しません。');
+ if(wasRecognizing){audioStatus('マイクを停止しました。もう一度「音声で再生」を押してください。');return;}
+ void speakVoiceReply(lastSpokenReply,{manual:true}).catch(e=>say(e.message));
+};
+$('voice-resume').onclick=startCoreConversation;
+$('conversation-end').onclick=()=>{cancelVoiceStart();replyEpoch++;voiceConversation.stop();speechOutput.stop();};
+$('stop-speech').onclick=()=>{cancelVoiceStart();welcome.cancel();if(voiceConversation?.active)voiceConversation.stop('読み上げと音声会話を停止しました');speechOutput.stop();};
 async function sendChat(command,voiceMode=false) {
   if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声対話を再開してください");return null;}
   command=command.trim();
@@ -1110,7 +1144,7 @@ voiceConversation=createVoiceSession({
  Recognition:window.SpeechRecognition||window.webkitSpeechRecognition,
  getText:()=>$("command").value,
  onText:text=>{$("manual-input").open=true;$("command").value=text;},
- cancelSpeech:()=>{welcome.cancel();speechOutput.stop();},
+ cancelSpeech:()=>{cancelVoiceStart();welcome.cancel();speechOutput.stop();},
  authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>document.documentElement.dataset.environment!=="production"||(claudeSelected()&&claudeAllowed),singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>replyKind==='market'?'BTC公開データ（Claude不使用）':(!$("chat-preview-mock").checked&&!claudeSelected()&&!liveTestSelected())?'BTC報告専用（実AI停止中）':claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
@@ -1120,15 +1154,16 @@ function voice(){
  if(busy)return say("処理終了後に音声入力してください");
  voiceConversation.startDictation();
 }
-$("voice-start").onclick=()=>void voiceConversation.startConversation();
+$("voice-start").onclick=startCoreConversation;
 $("voice-stop").onclick=()=>voiceConversation.stop();
 $("command").addEventListener('input',()=>{if(voiceConversation.active)stopDictation('手動編集に切り替えました。文章を保持しています。');});
-document.addEventListener("visibilitychange",()=>{if(document.hidden){replyEpoch++;$("reply-replay").hidden=true;welcome.cancel();stopDictation("画面が非表示になったため停止しました。文章は保持しています。");speechOutput.stop();}});
-window.addEventListener("pagehide",()=>{welcome.cancel();stopDictation();speechOutput.stop();});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){cancelVoiceStart();replyEpoch++;$("reply-replay").hidden=true;welcome.cancel();stopDictation("画面が非表示になったため停止しました。文章は保持しています。");speechOutput.stop();}});
+window.addEventListener("pagehide",()=>{cancelVoiceStart();welcome.cancel();stopDictation();speechOutput.stop();});
 $("orb-voice").onclick=()=>{
- if(voiceConversation.active)voiceConversation.stop();
- else if($("orb-voice").dataset.state==="speaking")$("stop-speech").click();
- else void voiceConversation.startConversation();
+ if(preparingVoice){cancelVoiceStart();speechOutput.stop();audioStatus('音声の準備を停止しました。');}
+ else if(voiceConversation.active)voiceConversation.stop();
+ else if($("orb-voice").dataset.state==="speaking"){if(welcome.active){welcome.cancel();speechOutput.stop();startCoreConversation();}else $("stop-speech").click();}
+ else startCoreConversation();
 };
 $("mic-command").onclick=voice;
 $("live-status-refresh").onclick=async()=>{

@@ -43,5 +43,5 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
   catch(error){if(token===epoch&&running)pause(error.message||'認証を確認できませんでした。');}
  }
  function startDictation(){if(running&&mode==='dictation'){stop();return;}stop();if(isBusy()||isHidden())return;mode='dictation';running=true;input.start();}
- return {start:startConversation,startConversation,startDictation,stop,get active(){return running;},get mode(){return mode;},get phase(){return phase;}};
+ return {start:startConversation,startConversation,startDictation,stop,get recognizing(){return input.active;},get active(){return running;},get mode(){return mode;},get phase(){return phase;}};
 }

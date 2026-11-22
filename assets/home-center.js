@@ -7,7 +7,7 @@ export function initHomeCenter() {
   $('weather-menu').append($('home-weather'));
   $('overview').append($('home-communication'));
   $('manual-input').append($('chat-form'));
-  $('voice-options').append($('speak').closest('label'));
+  $('core-audio-options').append($('speak').closest('label'));
   $('voice-options').append($('stop-speech'));
   new MutationObserver(()=>{const items=$('conversation').querySelectorAll('.message');const latest=items[items.length-1];$('conversation-latest').textContent=latest?latest.textContent.slice(0,180):'会話・実行結果はまだありません';}).observe($('conversation'),{childList:true,subtree:true});
   new MutationObserver(()=>{const text=$('status').textContent;if(text&&!/^(回答しました|J.A.R.V.I.S.が考え)/.test(text))$('conversation-latest').textContent=text.slice(0,180);}).observe($('status'),{childList:true,subtree:true,characterData:true});

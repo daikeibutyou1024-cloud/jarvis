@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {createSpeechOutput,createWelcome} from '../assets/speech-output.js';
+import test from 'node:test';import assert from 'node:assert/strict';import {createSpeechOutput,createWelcome,splitSpeechText} from '../assets/speech-output.js';
 const flush=async()=>{for(let i=0;i<8;i++)await Promise.resolve();};
 function fixture(){let id=0;const timers=new Map(),utterances=[],fallback=[];class Utterance{constructor(text){this.text=text;}}
 const synth={speak:u=>utterances.push(u),cancel:()=>{}};const output=createSpeechOutput({synth,Utterance,setTimer:(fn,ms)=>{timers.set(++id,{fn,ms});return id;},clearTimer:n=>timers.delete(n)});const welcome=createWelcome({speak:output.speak,text:'おかえりなさい。',onFallback:v=>fallback.push(v)});return {output,welcome,utterances,fallback,timers};}
@@ -6,3 +6,22 @@ test('desktop welcome speaks once, in Japanese, with no duplicate during pending
 test('Safari autoplay denial reveals fallback, retries only after explicit gesture',async()=>{const f=fixture();const first=f.welcome.play();f.utterances[0].onerror({error:'not-allowed'});assert.equal(await first,false);assert.equal(f.fallback.at(-1),true);assert.equal(await f.welcome.play(),false);assert.equal(f.utterances.length,1);const manual=f.welcome.play({userInitiated:true});assert.equal(f.utterances.length,2);f.utterances[1].onstart();f.utterances[1].onend();assert(await manual);assert.equal(f.fallback.at(-1),false);});
 test('silent autoplay failure times out once, cancels and shows fallback without looping',async()=>{const f=fixture();const p=f.welcome.play();[...f.timers.values()].find(x=>x.ms===4000).fn();assert.equal(await p,false);assert.equal(f.fallback.at(-1),true);assert.equal(f.utterances.length,1);assert.equal(f.timers.size,0);});
 test('stop prevents late speech events from reviving output or hiding fallback for a different attempt',async()=>{const f=fixture();const p=f.welcome.play();const old=f.utterances[0];f.welcome.cancel();f.output.stop();old.onstart();old.onend();assert.equal(await p,false);assert.equal(f.welcome.completed,false);await flush();assert.equal(f.timers.size,0);});
+
+test('long Japanese replies play sequential short chunks without losing characters; one CORE speech lifecycle',async()=>{
+ const text=('これは長い日本語の市場報告です。'.repeat(40))+'終わりです。',parts=splitSpeechText(text);assert.equal(parts.join(''),text);assert(parts.every(p=>Array.from(p).length<=140));
+ const utterances=[];let starts=0,ends=0,tracks=0;const output=createSpeechOutput({synth:{speak:u=>utterances.push(u),cancel(){}},Utterance:class{constructor(t){this.text=t;}},track:u=>{tracks++;u.onstart=()=>starts++;u.onend=()=>ends++;}});const done=output.speak(text);assert.equal(utterances.length,1);
+ for(let i=0;i<parts.length;i++){assert.equal(utterances.length,i+1);const u=utterances[i];assert.equal(u.lang,'ja-JP');assert.equal(u.volume,1);u.onstart();u.onend();}await done;assert.equal(tracks,1);assert.equal(starts,1);assert.equal(ends,1);assert.equal(output.remainingText,'');
+});
+test('Japanese voice is refreshed on voiceschanged; audible gesture preparation is once and resumes only on user gesture',async()=>{
+ let voices=[],changed,resumes=0;const utterances=[],synth={paused:true,getVoices:()=>voices,addEventListener:(e,fn)=>changed=fn,resume(){resumes++;this.paused=false;},speak:u=>utterances.push(u),cancel(){}};const output=createSpeechOutput({synth,Utterance:class{constructor(t){this.text=t;}}});voices=[{lang:'en-US',default:true},{lang:'ja-JP',name:'Japanese',default:false}];changed();const p=output.prepare();assert.equal(resumes,1);assert.match(utterances[0].text,/音声の準備/);assert.equal(utterances[0].voice.name,'Japanese');utterances[0].onstart();utterances[0].onend();assert(await p);assert(output.ready);await output.prepare();assert.equal(utterances.length,1);
+});
+test('recognition blocks TTS completely; no provider, overlapping microphone or retry',async()=>{
+ let calls=0;const output=createSpeechOutput({synth:{speak(){calls++;},cancel(){}},Utterance:class{},canSpeak:()=>false});await assert.rejects(output.speak('応答'),/音声認識中/);assert.equal(calls,0);
+});
+test('mid-reply failure retains only unfinished chunks, exposes manual replay without automatically retrying',async()=>{
+ const utterances=[],output=createSpeechOutput({synth:{speak:u=>utterances.push(u),cancel(){}},Utterance:class{constructor(t){this.text=t;}}}),text='長い報告です。'.repeat(70),parts=splitSpeechText(text);const rejected=assert.rejects(output.speak(text),/音声で再生/);utterances[0].onstart();utterances[0].onend();utterances[1].onstart();utterances[1].onerror({error:'interrupted'});await rejected;assert.equal(utterances.length,2);assert.equal(output.remainingText,parts.slice(1).join(''));const rest=output.remainingText,again=output.speak(rest,{userInitiated:true});for(let i=2;i<utterances.length;i++){utterances[i].onstart();utterances[i].onend();}await again;
+});
+test('stop during a chunk cancels the remaining queue; late end/start cannot restart speech',async()=>{
+ const f=fixture(),p=assert.rejects(f.output.speak('報告です。'.repeat(90)),/停止しました/),u=f.utterances[0];u.onstart();f.output.stop();u.onend();u.onstart();await p;assert.equal(f.utterances.length,1);assert.equal(f.timers.size,0);
+});
+test('end without a start event does not pretend audio played',async()=>{const f=fixture(),p=assert.rejects(f.output.speak('応答'),/再生開始/);f.utterances[0].onend();await p;assert.equal(f.output.remainingText,'応答');});
