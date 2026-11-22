@@ -21,7 +21,7 @@ export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},
   rec=current;active=true;stopping=false;const token=++epoch;const valid=()=>rec===current&&token===epoch;
   current.lang='ja-JP';current.continuous=true;current.interimResults=true;
   onState('starting','マイクを準備しています…');
-  current.onstart=()=>{if(!valid()||stopping)return;lastActivityAt=now();onListening(true);onState('listening','聞いています。約3秒の無音で停止します。自動送信はしません。');arm();};
+  current.onstart=()=>{if(!valid()||stopping)return;clearTimer(endTimer);endTimer=null;lastActivityAt=now();onListening(true);onState('listening','聞いています。約3秒の無音で停止します。自動送信はしません。');arm();};
   current.onresult=event=>{
    if(!valid())return;let text='',final='';for(let i=0;i<event.results.length;i++){const part=event.results[i][0]?.transcript||'';text+=part;if(event.results[i].isFinal)final+=part;}confirmedText=final;if(!stopping)lastActivityAt=now();
    if(text){heard=text;onText(base+(base&&heard?' ':'')+heard);}
@@ -35,6 +35,7 @@ export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},
    const message=['not-allowed','service-not-allowed'].includes(event.error)?'マイクの利用が許可されていません。Safariのマイク設定を確認してください。':event.error==='no-speech'?'音声を検出できませんでした。入力済みの文章は保持しています。':'音声認識に失敗しました。文章は保持しています。タップして再開できます。';
    finish(message,event.error!=='no-speech','error');try{old.abort?.();}catch{}
   };
+  endTimer=setTimer(()=>{if(valid()){finish('音声認識が開始されませんでした。再開ボタンを押してください。',true,'error');try{current.abort?.();}catch{}}},30000);
   try{current.start();}catch{finish('音声入力を開始できませんでした。マイク設定を確認してください。',true,'error');try{current.abort?.();}catch{}}
  }
  return {start,stop,get active(){return active;}};

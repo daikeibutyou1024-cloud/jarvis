@@ -1,15 +1,17 @@
+import {workspaceTarget} from '../../../lib/workspace-target.js';
 import {previewHost,validSession} from '../../../lib/preview-session.js';
 import {prepaidPolicy} from '../../../lib/preview-prepaid.js';
 import {conversationPayload} from '../../../lib/preview-conversation.js';
 import {runPreviewConversation,aiFailure} from '../../../lib/ai-runtime.js';
 const json=(body,status=200)=>Response.json(body,{status,headers:{'cache-control':'no-store'}});
-export async function onRequest({request,env}){
- if(!previewHost(request,env))return json({error:'対象Previewのみ利用できます'},403);
+export const onRequest=context=>handleConversation(context,false);
+export async function handleConversation({request,env},production=false){
+ if(production?workspaceTarget(request,env)?.kind!=='production':!previewHost(request,env))return json({error:'対象の会話環境を確認できません'},403);
  if(!await validSession(request,env))return json({error:'認証が必要です'},401);
  if(!['GET','POST'].includes(request.method))return json({error:'操作が不正です'},405);
  const policy=prepaidPolicy(request,env,'conversation');
  // No snapshot, key, grant or credential contents are exposed by the status API.
- if(request.method==='GET')return json({allowed:policy.allowed,reason:policy.reason,model:policy.model,maxOutput:policy.maxOutput,maxMicroUSD:policy.maxMicroUSD,maxCalls:policy.maxCalls??0,monthlyLimitApplied:false});
+ if(request.method==='GET')return json({allowed:policy.allowed,reason:policy.reason,model:policy.model,maxOutput:policy.maxOutput,maxMicroUSD:policy.maxMicroUSD,maxCalls:policy.maxCalls??0,expiresAt:policy.allowed?policy.expiresAt:null,monthlyLimitApplied:false});
  if(request.headers.get('Origin')!==new URL(request.url).origin)return json({error:'同一オリジンから操作してください'},403);
  if(!policy.allowed)return json({error:policy.reason,code:'PREPAID_BLOCKED'},503);
  let payload;

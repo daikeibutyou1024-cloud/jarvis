@@ -31,7 +31,7 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
  }
  const input=createVoiceInput({Recognition,now,setTimer,clearTimer,isHidden,cancelSpeech,getText:()=>mode==='conversation'?'':getText(),
   onText:text=>{if(mode==='conversation')lastVoiceText=text;onText(text);},onListening,
-  onState:(state,text)=>{if(mode==='dictation'){if(state==='idle'||state==='error')running=false;status(state,text);}else if(running&&['starting','listening','stopping'].includes(state)){if(state==='starting')status(state,'マイクを準備しています…');}else if(running&&state==='error')pause(text);},
+  onState:(state,text)=>{if(mode==='dictation'){if(state==='idle'||state==='error')running=false;status(state,text);}else if(running&&['starting','listening','stopping'].includes(state)){if(state==='starting')status(state,'マイクを準備しています…');else if(state==='listening')status(state,`聞いています。約3秒の無音で確定し、${label()}へ自動送信します。`);else status(state,'発話を確定しています…');}else if(running&&state==='error')pause(text);},
   onComplete:result=>void complete(result)});
  async function startConversation(){
   if(running){stop();return;}

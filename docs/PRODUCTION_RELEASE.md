@@ -1,5 +1,7 @@
 # J.A.R.V.I.S. 初期版 Production移行・復旧手順
 
+音声自由会話の追加候補は `VOICE_RELEASE_PLAN.md` を参照。この初期版用SQLを既に適用したDBへ再実行しない。通常会話の本番有効化は別の専用承認と最新の照合が必要。
+
 2026-11-17。対象は `feature/ai-business-rebuild`。最新HOME修正 `73596bc` を基準に、前回の未commit作業を退避・統合した。本書・SQL・自動化スクリプトの作成は本番への反映ではない。Production、main、実DB、バックアップは今回変更しない。
 
 ## 反映範囲と運用制限

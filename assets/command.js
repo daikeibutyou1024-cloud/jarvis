@@ -48,6 +48,7 @@ let memoryUI=null, authEpoch=0;
 let prototypeFlow=null, voiceConversation=null,bitbankUI=null,livePrice=null;
 let liveTestAllowed=false,liveTestSpent=false;
 let claudeAllowed=false;
+const conversationEndpoint=()=>document.documentElement.dataset.environment==='production'?'/api/business/chat-conversation':'/api/business/chat-claude-preview';
 const claudeSelected=()=>$("claude-conversation").checked;
 function pauseClaude(reason){claudeAllowed=false;$("claude-conversation").disabled=true;$("claude-conversation-status").textContent=reason+' 自動再送しません。承認状態を確認してください。';}
 const liveTestSelected=()=>$("voice-live-once").checked;
@@ -135,11 +136,16 @@ function lockSessionUI(){
 }
 function applySessionCapabilities(data){
  if(data.environment!=='production')return;
+ const firstProduction=document.documentElement.dataset.environment!=='production';
  document.documentElement.dataset.environment='production';
  const badge=document.querySelector('header .badge');if(badge)badge.textContent='PRODUCTION / 手動運用';
  for(const id of ['chat-preview-mock','content-preview-mock']){const e=$(id);if(e){e.checked=false;e.disabled=true;e.closest('label').hidden=true;}}
  for(const id of ['quick-create','job-apply-request']){const e=$(id);if(e){e.disabled=true;e.title='本番のモック生成は停止しています。手動編集・保存を利用してください';}}
  $('ai-status').textContent='実AI停止中 / 費用確認待ち';
+ if(firstProduction){$('voice-status').textContent='CORE：音声会話（本番専用の承認を確認してください）';
+ $('voice-conversation-status').textContent='本番はPreviewモックを利用しません。会話専用承認を確認してから開始してください。';
+ $('voice-phase').textContent='停止中 / 実Claude承認待ち';}
+ $('voice-live-once').closest('label').hidden=true;$('live-status-refresh').hidden=true;$('live-test-status').hidden=true;
  const note=document.querySelector('.home-report-body > p');if(note)note.textContent='手動保存・承認・履歴を利用できます。実AI・モック生成・定期実行・自動投稿は停止しています。';
 }
 async function authenticate() {
@@ -182,7 +188,7 @@ async function authenticate() {
 async function request(url, method = "GET", body) {
   const secret = await authenticate();
   if (!secret) throw Error("認証をキャンセルしました");
-  const aiRequest=method==="POST" && ["/api/chat","/api/business/jobs","/api/business/chat-preview","/api/business/chat-claude-preview"].includes(url);
+  const aiRequest=method==="POST" && ["/api/chat","/api/business/jobs","/api/business/chat-preview","/api/business/chat-claude-preview","/api/business/chat-conversation"].includes(url);
   if(aiRequest)coreState.set("thinking",true);
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),75000);
@@ -199,7 +205,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -215,7 +221,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;replyEpoch++;lastSpokenReply='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -992,12 +998,18 @@ function message(role, text) {
   root.append(p);
   root.scrollTop = root.scrollHeight;
 }
+let lastSpokenReply='',replyEpoch=0;
+try{$('speak').checked=localStorage.getItem('jarvis.speech.preference.v1')==='on';}catch{}
+$('speak').addEventListener('change',()=>{try{localStorage.setItem('jarvis.speech.preference.v1',$('speak').checked?'on':'off');}catch{say('読み上げ設定を保存できませんでした。今回の設定は有効です。');}});
 const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,track:u=>coreState.trackSpeech(u),onStop:()=>coreState.stopSpeech()});
-function speakVoiceReply(text){const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":text.includes("【Claude実AI・1回テスト】")?"クロードの実AIテストの回答です。":"";return spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"));}
+function speakVoiceReply(text){lastSpokenReply=text;const token=++replyEpoch;$('reply-replay').hidden=true;const spoken=spokenText(text),label=text.includes("【Previewモック】")?"プレビューのモック回答です。":text.includes("【Claude実AI・1回テスト】")?"クロードの実AIテストの回答です。":"";return (spoken?speechOutput.speak(label+spoken):Promise.reject(Error("読み上げる文章がありません"))).catch(error=>{if(token===replyEpoch&&!/停止しました/.test(error.message))$('reply-replay').hidden=false;throw error;});}
 function speak(text){if($("speak").checked)void speakVoiceReply(text).catch(error=>{if(!/停止しました/.test(error.message))say(error.message);});}
 const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:"おかえりなさい。ジャービスです。今日もよろしくお願いします。",onFallback:show=>{$("welcome-start").hidden=!show;$("welcome-status").textContent=show?"自動再生できませんでした。起動ボタンで挨拶を再生できます。":"";}});
 if(location.hash===""||location.hash==="#overview")window.addEventListener("load",()=>{if(!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
 $("welcome-start").onclick=async()=>{const startAfter=$("welcome-conversation").checked;voiceConversation?.stop("起動の挨拶を再生します。マイクは停止中です。");const played=await welcome.play({userInitiated:true});if(played&&startAfter&&!document.hidden)void voiceConversation.startConversation();};
+$('reply-replay').onclick=()=>{if(busy||document.hidden||!lastSpokenReply)return;voiceConversation?.stop('回答を再生します。送信は行いません。');void speakVoiceReply(lastSpokenReply).catch(e=>say(e.message));};
+$('voice-resume').onclick=()=>void voiceConversation.startConversation();
+$('conversation-end').onclick=()=>{replyEpoch++;voiceConversation.stop();};
 $("stop-speech").onclick=()=>{welcome.cancel();if(voiceConversation?.active)voiceConversation.stop("読み上げと音声会話を停止しました");speechOutput.stop();};
 async function sendChat(command,voiceMode=false) {
   if (busy) {if(voiceMode)throw Error("別の処理中です。終了後に音声対話を再開してください");return null;}
@@ -1045,7 +1057,7 @@ async function sendChat(command,voiceMode=false) {
       (remaining>memoryText.length ? previous.slice(-(remaining-memoryText.length)) : "") +
       question;
     if(liveTest){liveTestSpent=true;$("voice-live-once").disabled=true;$("live-mode-label").textContent="Claude実AIテスト（使用済み・再送禁止）";$("live-test-status").textContent="1回限定テストを送信しました。結果不明でも再送しません。";}
-    const data = claudeChat?await request('/api/business/chat-claude-preview','POST',{message:command,conversation:history.slice(-6),requestId:crypto.randomUUID()}):liveTest?await request('/api/business/chat-live-preview','POST',{message:command,conversation:history.slice(-4).map(r=>({role:r.role,text:r.text.slice(0,256)}))}):previewChat
+    const data = claudeChat?await request(conversationEndpoint(),'POST',{message:command,conversation:history.slice(-6),requestId:crypto.randomUUID()}):liveTest?await request('/api/business/chat-live-preview','POST',{message:command,conversation:history.slice(-4).map(r=>({role:r.role,text:r.text.slice(0,256)}))}):previewChat
       ? await request('/api/business/chat-preview','POST',{message:command,conversation:history.slice(-8).map(r=>({role:r.role,text:r.text.slice(0,2000)}))})
       : await request("/api/chat", "POST", { prompt });
     if(epoch!==authEpoch)return null;
@@ -1095,10 +1107,10 @@ voiceConversation=createVoiceSession({
  getText:()=>$("command").value,
  onText:text=>{$("manual-input").open=true;$("command").value=text;},
  cancelSpeech:()=>{welcome.cancel();speechOutput.stop();},
- authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>((claudeSelected()&&claudeAllowed)||$("chat-preview-mock").checked||(liveTestSelected()&&liveTestAllowed&&!liveTestSpent))&&document.documentElement.dataset.environment!=="production",singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
+ authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>((claudeSelected()&&claudeAllowed)||(document.documentElement.dataset.environment!=="production"&&($("chat-preview-mock").checked||(liveTestSelected()&&liveTestAllowed&&!liveTestSpent)))),singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
+ onState:(state,text)=>{const labels={idle:'停止中',paused:'再開待ち',starting:'マイク準備中',authorizing:'認証中',listening:'聞き取り中',stopping:'発話確定中',finalizing:'発話確定中',processing:'考え中',speaking:'読み上げ中'};$('voice-phase').textContent=(labels[state]||state)+' / '+(voiceConversation?.mode==='dictation'?'文字起こし専用':claudeSelected()?'Claude実AI':liveTestSelected()?'Claude実AI・1回テスト':document.documentElement.dataset.environment==='production'?'実AI停止中':'Previewモック');$('voice-resume').hidden=state!=='paused';$('conversation-end').hidden=['idle','paused','error'].includes(state);if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
 });
 function voice(){
  if(busy)return say("処理終了後に音声入力してください");
@@ -1107,7 +1119,7 @@ function voice(){
 $("voice-start").onclick=()=>void voiceConversation.startConversation();
 $("voice-stop").onclick=()=>voiceConversation.stop();
 $("command").addEventListener('input',()=>{if(voiceConversation.active)stopDictation('手動編集に切り替えました。文章を保持しています。');});
-document.addEventListener("visibilitychange",()=>{if(document.hidden){welcome.cancel();stopDictation("画面が非表示になったため停止しました。文章は保持しています。");speechOutput.stop();}});
+document.addEventListener("visibilitychange",()=>{if(document.hidden){replyEpoch++;$("reply-replay").hidden=true;welcome.cancel();stopDictation("画面が非表示になったため停止しました。文章は保持しています。");speechOutput.stop();}});
 window.addEventListener("pagehide",()=>{welcome.cancel();stopDictation();speechOutput.stop();});
 $("orb-voice").onclick=()=>{
  if(voiceConversation.active)voiceConversation.stop();
@@ -1120,7 +1132,7 @@ $("live-status-refresh").onclick=async()=>{
 };
 $("claude-status-refresh").onclick=async()=>{
  voiceConversation.stop();
- try{const policy=await request('/api/business/chat-claude-preview');claudeAllowed=policy.allowed===true;$("claude-conversation").disabled=!claudeAllowed;$("claude-conversation-status").textContent=claudeAllowed?`${policy.model} / 最大出力${policy.maxOutput} tokens / 1回の推定最大${policy.maxMicroUSD/1e6} USD / 承認最大${policy.maxCalls}回。音声は3往復ごとに停止します。`:policy.reason;}
+ try{const policy=await request(conversationEndpoint());claudeAllowed=policy.allowed===true;$("claude-conversation").disabled=!claudeAllowed;$("claude-conversation-status").textContent=claudeAllowed?`${policy.model} / 最大出力${policy.maxOutput} tokens / 1回の推定最大${policy.maxMicroUSD/1e6} USD / 承認最大${policy.maxCalls}回 / 期限${new Date(policy.expiresAt).toLocaleString("ja-JP")}。音声は3往復ごとに停止します。`:policy.reason;}
  catch(error){pauseClaude(error.message);}
 };
 $("claude-conversation").onchange=()=>{voiceConversation.stop();if(claudeSelected()){$("chat-preview-mock").checked=false;$("voice-live-once").checked=false;}};

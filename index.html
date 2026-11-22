@@ -82,10 +82,10 @@
               ><span class="orb-ring-three"></span><span class="orb-ticks" aria-hidden="true"></span><span class="orb-segments" aria-hidden="true"></span><span class="orb"></span>
             </button>
             <div class="orb-label">J.A.R.V.I.S. CORE</div>
-            <p id="voice-status" role="status">オーブ：音声会話を開始（Previewモック）</p>
+            <p><strong>CORE：音声会話</strong> — タップで開始・終了</p><p id="voice-status" role="status">オーブ：音声会話を開始（Previewモック）</p>
             <button id="welcome-start" type="button" hidden>J.A.R.V.I.S.を起動</button><p id="welcome-status" role="status"></p>
             <details id="manual-input"><summary>文字で入力する</summary></details>
-            <details id="voice-settings"><summary>音声・読み上げ設定</summary><label class="check"><input id="claude-conversation" type="checkbox" disabled>Claude通常会話（Preview・承認待ち）</label><button id="claude-status-refresh" type="button">通常会話の承認状態を確認</button><p id="claude-conversation-status" role="status">実Claudeは停止中です。別途承認後、文字・オーブの両方で利用できます。</p><label class="check"><input id="voice-live-once" type="checkbox" disabled><span id="live-mode-label">Claude実AIテスト（1回限定・停止中）</span></label><button id="live-status-refresh" type="button">実AIテストの条件を確認</button><p id="live-test-status" role="status">実AIは停止中です。残高・料金・予算確認前は送信しません。</p><div id="voice-options"><label class="check"><input id="welcome-conversation" type="checkbox">起動の挨拶後に音声会話を開始（Previewモック）</label></div></details>
+            <div class="actions"><button id="voice-resume" type="button" hidden>会話を再開</button><button id="reply-replay" type="button" hidden>回答を再生</button><button id="conversation-end" type="button" hidden>会話を終了</button></div><p id="voice-phase" role="status">停止中</p><details id="voice-settings"><summary>音声・読み上げ設定</summary><label class="check"><input id="claude-conversation" type="checkbox" disabled>Claude通常会話（承認が必要）</label><button id="claude-status-refresh" type="button">通常会話の承認状態を確認</button><p id="claude-conversation-status" role="status">実Claudeは停止中です。別途承認後、文字・オーブの両方で利用できます。</p><label class="check"><input id="voice-live-once" type="checkbox" disabled><span id="live-mode-label">Claude実AIテスト（1回限定・停止中）</span></label><button id="live-status-refresh" type="button">実AIテストの条件を確認</button><p id="live-test-status" role="status">実AIは停止中です。残高・料金・予算確認前は送信しません。</p><div id="voice-options"><label class="check"><input id="welcome-conversation" type="checkbox">起動の挨拶後に音声会話を開始（Previewモック）</label></div></details>
           </div>
 
           </div>
@@ -527,7 +527,7 @@
         <div class="section-heading">
           <h2 class="visually-hidden">J.A.R.V.I.S.に相談</h2>
           <label class="check"
-            ><input id="speak" type="checkbox" /> 回答を読み上げ</label
+            ><input id="speak" type="checkbox" /> 回答を読み上げ（設定を保存）</label
           >
         </div>
         <p class="hint">
@@ -545,8 +545,7 @@
         <form id="chat-form" class="command-row">
           <button
             type="button"
-            id="mic-command"
-            aria-label="音声入力"
+            aria-label="文字起こし専用マイク（自動送信なし）" title="文字起こし専用・自動送信なし" id="mic-command"
             aria-pressed="false"
           >
             ◎</button

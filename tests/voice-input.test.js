@@ -13,3 +13,5 @@ for(const error of ['not-allowed','service-not-allowed','network','no-speech'])t
 test('rapid taps share one recognizer; start failure is recoverable',()=>{const f=fixture({ending:false});f.input.start();f.input.start();f.input.start();assert.equal(f.instances.length,1);f.advance(1000);assert(!f.input.active);const blocked=fixture({throws:true});blocked.input.start();assert(!blocked.input.active);assert.equal(blocked.state,'error');assert.equal(blocked.text,'既存の文章');});
 
 test('permission dialog does not start the silence clock; pending start can be cancelled',()=>{const f=fixture({starting:false});f.input.start();f.advance(10000);assert(f.input.active);assert.equal(f.instances[0].stops,undefined);f.input.stop();assert(!f.input.active);assert.equal(f.text,'既存の文章');});
+
+test('recognizer that never starts times out safely, detaches late start and keeps existing text',()=>{const f=fixture({starting:false});f.input.start();const late=f.instances[0].onstart;f.advance(30000);assert(!f.input.active);assert.equal(f.state,'error');assert.equal(f.text,'既存の文章');late?.();assert(!f.input.active);assert.equal(f.instances.length,1);});
