@@ -1049,3 +1049,5 @@ body[data-current-page="overview"] #status {
 #speech-voice-status{overflow-wrap:anywhere}#voice-settings output{color:#8cdeee}
 
 #free-history-panel{overflow-wrap:anywhere}#free-history-list{padding-left:22px;max-height:60vh;overflow:auto}#free-history-list li{padding:8px;border-bottom:1px solid #2a4057}#free-core-info,#free-history-status{overflow-wrap:anywhere}
+
+#core-command-diagnostics{width:min(100%,620px);text-align:left;overflow-wrap:anywhere}#core-command-diagnostic{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;font-size:12px}

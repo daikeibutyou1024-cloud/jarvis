@@ -1,3 +1,4 @@
+import {safeCommandDiagnostic,isBTCReportCommand} from '../lib/core-command.js';
 import {createDialogueArchive} from './dialogue-archive.js';
 import {createFreeDialogue} from '../lib/free-dialogue.js';
 import {initFreeHistoryUI} from './free-history-ui.js';
@@ -55,7 +56,11 @@ let memoryUI=null, authEpoch=0;
 let prototypeFlow=null, voiceConversation=null,bitbankUI=null,btcReportUI=null,livePrice=null;
 const freeCoreHost=/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.dev$/.test(location.hostname)||['localhost','127.0.0.1'].includes(location.hostname);
 const freeCore=()=>freeCoreHost&&document.documentElement.dataset.environment!=='production';
-let freeDialogue=null,freeHistoryUI=null,freeTurnCount=0;
+let freeDialogue=null,freeHistoryUI=null,freeTurnCount=0,lastCommandDiagnostic=null;
+function beginCommandDiagnostic(raw,voiceMode){lastCommandDiagnostic=safeCommandDiagnostic(raw,{source:voiceMode?'voice':'text',intent:isBTCReportCommand(raw)?'btc_report':'pending',password});$('core-command-diagnostic').textContent=JSON.stringify(lastCommandDiagnostic,null,2);return lastCommandDiagnostic;}
+function updateCommandDiagnostic(event){if(!lastCommandDiagnostic||lastCommandDiagnostic.status==='blocked')return;lastCommandDiagnostic=safeCommandDiagnostic(lastCommandDiagnostic.input,{...lastCommandDiagnostic,...event,password});$('core-command-diagnostic').textContent=JSON.stringify(lastCommandDiagnostic,null,2);}
+function clearCommandDiagnostic(){lastCommandDiagnostic=null;$('core-command-diagnostic').textContent='まだ確定した入力はありません。診断は端末内の最新1件だけです。';}
+
 let liveTestAllowed=false,liveTestSpent=false;
 let claudeAllowed=false;
 const conversationEndpoint=()=>document.documentElement.dataset.environment==='production'?'/api/business/chat-conversation':'/api/business/chat-claude-preview';
@@ -218,13 +223,13 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';freeDialogue?.lock();freeHistoryUI?.lock();freeTurnCount=0;$('free-turn-count').textContent='0往復 / 回数上限なし';$("conversation").replaceChildren();
+      authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';freeDialogue?.lock();freeHistoryUI?.lock();clearCommandDiagnostic();freeTurnCount=0;$('free-turn-count').textContent='0往復 / 回数上限なし';$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
     }
     const error=Error((data.error || "API通信に失敗しました") + (data.diagnostic ? `（診断ID: ${data.diagnostic.id} / 段階: ${data.diagnostic.stage}）` : ""));
-    error.data=data;
+    error.data=data;error.status=response.status;
     if(!url.startsWith("/api/business/memory"))prototypeFlow?.failure(error.message);
     throw error;
   }
@@ -234,7 +239,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';freeDialogue?.lock();freeHistoryUI?.lock();freeTurnCount=0;$('free-turn-count').textContent='0往復 / 回数上限なし';$("conversation").replaceChildren();
+  authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';freeDialogue?.lock();freeHistoryUI?.lock();clearCommandDiagnostic();freeTurnCount=0;$('free-turn-count').textContent='0往復 / 回数上限なし';$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -1063,10 +1068,11 @@ $('conversation-end').onclick=()=>{cancelVoiceStart();replyEpoch++;voiceConversa
 $('stop-speech').onclick=()=>{cancelVoiceStart();welcome.cancel();if(voiceConversation?.active)voiceConversation.stop('読み上げと音声会話を停止しました');speechOutput.stop();};
 async function sendFreeChat(command,voiceMode=false){
  if(busy){if(voiceMode)throw Error('別の処理中です。');return null;}command=command.trim();if(!command)return null;
+ if(beginCommandDiagnostic(command,voiceMode).status==='blocked'){say('機密情報の可能性があるため処理・記録しません。');if(voiceMode)throw Error('入力を確認してください。');return null;}
  try{rejectSecrets(command,{JARVIS_ACCESS_PASSWORD:password});}catch{say('認証情報の可能性があるため送信・記憶しません。');if(voiceMode)throw Error('入力を確認してください。');return null;}
  setBusy(true);let token=authEpoch;
- try{if(!await authenticate())return null;token=authEpoch;if(!voiceMode)$('command').value='';message('user',command);const result=await freeDialogue.answer(command);if(token!==authEpoch)return null;replyKind=result.topic==='btc'?'market':'free';message('assistant',result.text);freeTurnCount++;$('free-turn-count').textContent='このページ '+freeTurnCount+'往復 / アプリの回数上限なし・有料AI不使用';freeHistoryUI.saved(result.warning);$('ai-status').textContent='無料CORE / ローカル定型処理 / 有料AI不使用';if(!voiceMode)speak(result.text);return result.text;}
- catch(e){if(token!==authEpoch)return null;message('assistant','確認できません：'+e.message);if(voiceMode)throw e;say(e.message);return null;}finally{setBusy(false);}
+ try{if(!await authenticate())return null;token=authEpoch;if(!voiceMode)$('command').value='';message('user',command);updateCommandDiagnostic({status:'processing'});const result=await freeDialogue.answer(command);if(token!==authEpoch)return null;replyKind=result.topic==='btc'?'market':'free';message('assistant',result.text);freeTurnCount++;$('free-turn-count').textContent='このページ '+freeTurnCount+'往復 / アプリの回数上限なし・有料AI不使用';freeHistoryUI.saved(result.warning);$('ai-status').textContent='無料CORE / ローカル定型処理 / 有料AI不使用';if(!voiceMode)speak(result.text);return result.text;}
+ catch(e){if(token!==authEpoch)return null;if(!['acquisition_failed','partial_acquisition','blocked'].includes(lastCommandDiagnostic?.status))updateCommandDiagnostic({status:'failed'});message('assistant','確認できません：'+e.message);if(voiceMode)throw e;say(e.message);return null;}finally{setBusy(false);}
 }
 async function sendChat(command,voiceMode=false) {
  if(freeCore())return sendFreeChat(command,voiceMode);
@@ -1284,7 +1290,7 @@ if(/^(?:[a-f0-9]{8}|feature-ai-business-rebuild)\.asset-simulator-87y\.pages\.de
 bitbankUI=initBitbank({request,say});
 btcReportUI=initBTCReport({request,say});
 const freeArchive=createDialogueArchive();
-freeDialogue=createFreeDialogue({archive:freeArchive,report:async()=>({text:await btcReportUI.report(),snapshot:btcReportUI.snapshot}),weather:weatherReport,tasks:async text=>{if(/追加|変更|削除|登録/.test(text))return '無料会話では予定やタスクの追加・変更は行いません。既存の編集画面を利用してください。';if(/予定|カレンダー/.test(text))return 'この版ではGoogleカレンダー連携は停止中のため、予定を取得できません。予定がないと確認した意味ではありません。';const stats=$('home-job-stats')?.textContent||'';const rows=[...$('quick-saved').querySelectorAll('button')].slice(0,3).map(b=>b.textContent.split(' / ')[0]);return '現在画面に読み込まれている業務記録についてです。'+(stats&&!/読み込み中/.test(stats)?stats:'業務状況は未確認です。')+(rows.length?'保存済み案件は、'+rows.join('。'):'未読込の記録がある可能性があるため、タスクなしとは判断しません。')+'クラウドを新しく取得した報告ではありません。';}});
+freeDialogue=createFreeDialogue({archive:freeArchive,onDiagnostic:updateCommandDiagnostic,report:async()=>({text:await btcReportUI.report(),snapshot:btcReportUI.snapshot}),weather:weatherReport,tasks:async text=>{if(/追加|変更|削除|登録/.test(text))return '無料会話では予定やタスクの追加・変更は行いません。既存の編集画面を利用してください。';if(/予定|カレンダー/.test(text))return 'この版ではGoogleカレンダー連携は停止中のため、予定を取得できません。予定がないと確認した意味ではありません。';const stats=$('home-job-stats')?.textContent||'';const rows=[...$('quick-saved').querySelectorAll('button')].slice(0,3).map(b=>b.textContent.split(' / ')[0]);return '現在画面に読み込まれている業務記録についてです。'+(stats&&!/読み込み中/.test(stats)?stats:'業務状況は未確認です。')+(rows.length?'保存済み案件は、'+rows.join('。'):'未読込の記録がある可能性があるため、タスクなしとは判断しません。')+'クラウドを新しく取得した報告ではありません。';}});
 freeHistoryUI=initFreeHistoryUI({archive:freeArchive,authorize:authenticate});
 if(freeCore()){
  for(const id of ['claude-conversation','voice-live-once','claude-status-refresh','live-status-refresh'])$(id).disabled=true;
