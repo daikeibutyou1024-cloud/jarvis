@@ -1,3 +1,4 @@
+import {initSpeechSettings} from './speech-settings.js';
 import {marketReportIntent} from '../lib/btc-market-report.js';
 import {initBTCReport} from './btc-report-ui.js';
 import {initLivePrice} from './live-price-ui.js';
@@ -112,6 +113,8 @@ let page = "overview",
 let marketingPreview;
 let currentDocument = {projectId:crypto.randomUUID(),revision:0}, localRevision = 0;
 const history = [];
+let conversationDomain='';
+function rememberLocalExchange(user,answer){history.push({role:'user',text:user},{role:'assistant',text:answer.slice(0,2000)});if(history.length>12)history.splice(0,history.length-12);}
 let businessStore = null;
 let research = null, editorial = null, currentWorkflow = null, selectedEditorialSection = "";
 let currentGeneration = null,
@@ -207,7 +210,7 @@ async function request(url, method = "GET", body) {
     if(aiRequest)coreState.error();
     if (response.status === 401) {
       password = "";sessionReady=false;lockSessionUI();
-      authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+      authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';$("conversation").replaceChildren();
       voiceConversation?.stop("認証に失敗しました。認証を確認して音声対話を再開してください");
       $("ai-status").textContent = "認証失敗";
       $("db-status").textContent = "認証失敗";
@@ -223,7 +226,7 @@ async function request(url, method = "GET", body) {
 }
 $("logout").onclick = async () => {
   if(sessionMode){try{const r=await fetch('/api/session',{method:'DELETE',credentials:'same-origin'});if(!r.ok)throw Error();sessionReady=false;clearTimeout(sessionExpiryTimer);lockSessionUI();}catch{say('ログアウトを確認できません。再試行してください');return;}}
-  authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;$("conversation").replaceChildren();
+  authEpoch++;cancelVoiceStart();replyEpoch++;lastSpokenReply='';lastFailedSpoken='';$("reply-replay").hidden=true;livePrice?.suspendAuth();bitbankUI?.clear();btcReportUI?.clear();memoryUI?.lock();history.length=0;conversationDomain='';$("conversation").replaceChildren();
   voiceConversation?.stop();
   password = "";
   $("ai-status").textContent = "未確認";
@@ -1006,7 +1009,9 @@ try{$('speak').checked=localStorage.getItem('jarvis.speech.preference.v1')!=='of
 const audioStatus=text=>{$('audio-output-status').textContent=text;};
 const preferenceStatus=()=>audioStatus($('speak').checked?'音声ON：回答を日本語で読み上げます。':'音声OFF：自動再生しません。「音声で再生」は利用できます。');
 preferenceStatus();
-const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,canSpeak:()=>!document.hidden&&!voiceConversation?.recognizing,track:u=>{coreState.clearError();coreState.trackSpeech(u);},onStop:()=>coreState.stopSpeech()});
+let speechStorage;try{speechStorage=localStorage;}catch{speechStorage={getItem:()=>null,setItem:()=>{throw Error('storage unavailable');}};}
+const speechSettings=initSpeechSettings({synth:window.speechSynthesis,storage:speechStorage});
+const speechOutput=createSpeechOutput({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,canSpeak:()=>!document.hidden&&!voiceConversation?.recognizing,getOptions:()=>speechSettings.get(),track:u=>{coreState.clearError();coreState.trackSpeech(u);},onStop:()=>coreState.stopSpeech()});
 function cancelVoiceStart(){const wasPreparing=preparingVoice;voiceStartEpoch++;preparingVoice=false;if(wasPreparing&&!voiceConversation?.active){$('conversation-end').hidden=true;$('voice-phase').textContent='停止中';}}
 function speakVoiceReply(text,{manual=false}={}){
  if(!manual){lastSpokenReply=text;lastFailedSpoken='';}
@@ -1030,7 +1035,7 @@ function startCoreConversation(){
   void preparation.catch(error=>{if(token===voiceStartEpoch)audioStatus(error.message);}).then(()=>{if(token!==voiceStartEpoch||auth!==authEpoch||document.hidden||page!=='overview')return;preparingVoice=false;void voiceConversation.startConversation();});
  }else{if($('speak').checked)void speechOutput.prepare().catch(e=>audioStatus(e.message));void voiceConversation.startConversation();}
 }
-const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,options),text:'おかえりなさい。ジャービスです。今日もよろしくお願いします。',onFallback:show=>{$('welcome-start').hidden=!show;$('welcome-status').textContent=show?'自動再生できませんでした。起動ボタンで挨拶を再生できます。':'';}});
+const welcome=createWelcome({speak:(text,options)=>speechOutput.speak(text,{...options,rate:speechSettings.get().rate}),text:'おかえりなさい。ジャービスです。今日もよろしくお願いします。',onFallback:show=>{$('welcome-start').hidden=!show;$('welcome-status').textContent=show?'自動再生できませんでした。起動ボタンで挨拶を再生できます。':'';}});
 if(location.hash===''||location.hash==='#overview')window.addEventListener('load',()=>{if($('speak').checked&&!document.hidden&&!voiceConversation?.active)void welcome.play();},{once:true});
 $('speak').addEventListener('change',()=>{
  const wasRecognizing=voiceConversation?.recognizing;cancelVoiceStart();welcome.cancel();voiceConversation?.stop('音声設定を変更しました。会話は停止しました。');speechOutput.stop();
@@ -1044,6 +1049,7 @@ $('reply-replay').onclick=()=>{
  if(wasRecognizing){audioStatus('マイクを停止しました。もう一度「音声で再生」を押してください。');return;}
  void speakVoiceReply(lastSpokenReply,{manual:true}).catch(e=>say(e.message));
 };
+$('speech-sample').onclick=()=>{const wasRecognizing=voiceConversation?.recognizing;cancelVoiceStart();welcome.cancel();voiceConversation?.stop('音声サンプルを再生します。');if(wasRecognizing){audioStatus('マイクを停止しました。もう一度「声を試す」を押してください。');return;}void speechOutput.speak(spokenText('ジャービスです。ビットコインは12,345,678円、前日比はプラス1.25%です。'),{userInitiated:true}).catch(e=>audioStatus(e.message));};
 $('voice-resume').onclick=startCoreConversation;
 $('conversation-end').onclick=()=>{cancelVoiceStart();replyEpoch++;voiceConversation.stop();speechOutput.stop();};
 $('stop-speech').onclick=()=>{cancelVoiceStart();welcome.cancel();if(voiceConversation?.active)voiceConversation.stop('読み上げと音声会話を停止しました');speechOutput.stop();};
@@ -1059,7 +1065,9 @@ async function sendChat(command,voiceMode=false) {
   if(!voiceMode)$("command").value = "";
   say("J.A.R.V.I.S.が考えています…");
   try {
-    if(marketReportIntent(command)){const answer=await btcReportUI.report();if(epoch!==authEpoch)return null;message('assistant',answer);$('ai-status').textContent='BTC公開市場レポート・Claude不使用';if(!voiceMode)speak(answer);return answer;}
+    if(marketReportIntent(command)){const answer=await btcReportUI.report();if(epoch!==authEpoch)return null;conversationDomain='btc';rememberLocalExchange(command,answer);message('assistant',answer);$('ai-status').textContent='BTC公開市場レポート・Claude不使用';if(!voiceMode)speak(answer);return answer;}
+    const followUp=btcReportUI?.followUp(command,{pronounContext:conversationDomain==='btc'});if(followUp){replyKind='market';conversationDomain='btc';rememberLocalExchange(command,followUp);message('assistant',followUp);$('ai-status').textContent='直前のBTCレポートの説明・Claude不使用';if(!voiceMode)speak(followUp);return followUp;}
+    conversationDomain='';
     if(assetIntent(command)){
       const answer=await bitbankUI.report();if(epoch!==authEpoch)return null;
       message('assistant',answer);$('ai-status').textContent='資産報告（架空・AI未使用）';say('架空データの資産報告です');
@@ -1148,7 +1156,7 @@ voiceConversation=createVoiceSession({
  authorize:authenticate,send:text=>sendChat(text,true),speak:speakVoiceReply,isBusy:()=>busy,canConverse:()=>document.documentElement.dataset.environment!=="production"||(claudeSelected()&&claudeAllowed),singleTurn:liveTestSelected,turnLimit:()=>claudeSelected()?3:Infinity,modeLabel:()=>replyKind==='market'?'BTC公開データ（Claude不使用）':(!$("chat-preview-mock").checked&&!claudeSelected()&&!liveTestSelected())?'BTC報告専用（実AI停止中）':claudeSelected()?"Claude実AI":liveTestSelected()?"Claude実AI（1回テスト）":"Previewモック",blockedReason:()=>liveTestSpent?"1回限定テストは使用済みです。追加送信は禁止しています。":"実AIは残高・料金未確認のため停止中です。Previewモックを選択してください。",
  isHidden:()=>document.hidden||page!=="overview",
  onListening:value=>{if(value)coreState.clearError();coreState.set("listening",value);$("orb-voice").classList.toggle("listening",value);for(const id of ["orb-voice","mic-command"])$(id).setAttribute("aria-pressed",String(value));},
- onState:(state,text)=>{coreState.set('thinking',state==='processing');const labels={idle:'停止中',paused:'再開待ち',starting:'マイク準備中',authorizing:'認証中',listening:'聞き取り中',stopping:'発話確定中',finalizing:'発話確定中',processing:'考え中',speaking:'読み上げ中'};$('voice-phase').textContent=(labels[state]||state)+' / '+(voiceConversation?.mode==='dictation'?'文字起こし専用':replyKind==='market'?'BTC公開データ（Claude不使用）':claudeSelected()?'Claude実AI':liveTestSelected()?'Claude実AI・1回テスト':document.documentElement.dataset.environment==='production'?'実AI停止中':!$('chat-preview-mock').checked?'BTC報告専用（実AI停止中）':'Previewモック');$('voice-resume').hidden=state!=='paused';$('conversation-end').hidden=['idle','paused','error'].includes(state);if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
+ onState:(state,text)=>{coreState.set('thinking',state==='processing');const labels={idle:'停止中',paused:'再開待ち',starting:'マイク準備中',authorizing:'認証中',listening:'聞き取り中',stopping:'発話確定中',finalizing:'発話確定中',processing:'考え中',speaking:'読み上げ中',waiting:'次の発話を待機中'};$('voice-phase').textContent=(labels[state]||state)+' / '+(voiceConversation?.mode==='dictation'?'文字起こし専用':replyKind==='market'?'BTC公開データ（Claude不使用）':claudeSelected()?'Claude実AI':liveTestSelected()?'Claude実AI・1回テスト':document.documentElement.dataset.environment==='production'?'実AI停止中':!$('chat-preview-mock').checked?'BTC報告専用（実AI停止中）':'Previewモック');$('voice-resume').hidden=state!=='paused';$('conversation-end').hidden=['idle','paused','error'].includes(state);if(state==="error"||state==="paused")coreState.error();$("voice-status").textContent=text;$("voice-conversation-status").textContent=text;$("orb-voice").setAttribute("aria-label",voiceConversation?.active?"球体を押して音声会話を停止":"球体を押して音声会話を開始");}
 });
 function voice(){
  if(busy)return say("処理終了後に音声入力してください");

@@ -6,7 +6,7 @@ import {createDiagnostic} from '../lib/ai-diagnostics.js';
 import {spokenText} from '../lib/speech.js';
 test('speech preserves ordinary text and removes emoji, flags, keycaps and formatting',()=>{
  assert.equal(spokenText('Preview test 123 日本語 😊 🇯🇵 👩🏽‍💻 1️⃣'), 'Preview test 123 日本語');
- assert.equal(spokenText('## ABC\n日本語 https://example.com'), 'ABC 日本語 リンク');
+ assert.equal(spokenText('## ABC\n日本語 https://example.com'), 'ABC。日本語 リンク');
 });
 test('diagnostic logging failure never interrupts work',()=>{const original=console.info;console.info=()=>{throw Error('logger down');};try{const d=createDiagnostic();d.stage('quota');assert.match(d.finish().id,/^[a-f0-9-]{36}$/);}finally{console.info=original;}});
 for(const scenario of ['headers_timeout','body_timeout','upstream','invalid_json','success'])test('offline diagnostic: '+scenario,async()=>{

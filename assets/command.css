@@ -1041,3 +1041,9 @@ body[data-current-page="overview"] #status {
 #ticker-price.price-old { color:#8098a3; }
 #ticker-direction { font-size:24px;color:#c5f4ff; }
 #live-price-panel p { margin:5px 0; }
+
+/* Device voice names can be long; keep Safari settings inside the CORE card. */
+#voice-settings fieldset{min-width:0;max-width:100%;box-sizing:border-box;border:1px solid #2a4057;border-radius:8px;margin:10px 0;padding:12px}
+#voice-settings legend{max-width:100%;white-space:normal;color:#8cdeee}
+#voice-settings select,#voice-settings input[type=range]{min-width:0;max-width:100%;box-sizing:border-box}
+#speech-voice-status{overflow-wrap:anywhere}#voice-settings output{color:#8cdeee}

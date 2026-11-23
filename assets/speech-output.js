@@ -1,22 +1,24 @@
+import {chooseJapaneseVoice} from '../lib/speech-style.js';
 // Shared device TTS. Audible gesture preparation only; no silent audio or resume loops.
 export function splitSpeechText(text,limit=140){
  const chars=Array.from(String(text));const chunks=[];
  while(chars.length){let end=Math.min(limit,chars.length);if(end<chars.length){for(let i=end-1;i>=Math.floor(limit/3);i--)if(/[。！？!?\n]/u.test(chars[i])||(chars[i]==='.'&&/\s/.test(chars[i+1]||''))){end=i+1;break;}}const part=chars.splice(0,end).join('');if(part.trim())chunks.push(part);}
  return chunks;
 }
-export function createSpeechOutput({synth,Utterance,track=()=>{},onStop=()=>{},canSpeak=()=>true,setTimer=setTimeout,clearTimer=clearTimeout}){
+export function createSpeechOutput({synth,Utterance,track=()=>{},onStop=()=>{},canSpeak=()=>true,getOptions=()=>({}),setTimer=setTimeout,clearTimer=clearTimeout}){
  let current=null,initialized=false,voices=[],remaining='';
  const refreshVoices=()=>{try{voices=Array.from(synth?.getVoices?.()||[]);}catch{voices=[];}};
  refreshVoices();synth?.addEventListener?.('voiceschanged',refreshVoices);
  function stop(){const old=current;old?.finish(Error('読み上げを停止しました'));current=null;remaining='';onStop();try{synth?.cancel();}catch{}}
- function speak(text,{rate=1,userInitiated=false}={}){
+ function speak(text,{rate,pitch,voiceURI,userInitiated=false}={}){
+  const settings=getOptions();rate=rate??settings.rate??1;pitch=pitch??settings.pitch??1;voiceURI=voiceURI??settings.voiceURI??'';
   stop();if(!synth||!Utterance)return Promise.reject(Error('読み上げに非対応です。画面の回答を確認してください。'));
   if(!canSpeak())return Promise.reject(Error('音声認識中は再生できません。マイクを停止して「音声で再生」を押してください。'));
   if(typeof text!=='string'||!text.trim()||Array.from(text).length>20000)return Promise.reject(Error('読み上げる文章の長さを確認してください。'));
   refreshVoices();if(userInitiated){try{if(synth.paused)synth.resume?.();}catch{}}
   const chunks=splitSpeechText(text),speed=Math.min(2,Math.max(.6,Number(rate)||1));
   return new Promise((resolve,reject)=>{
-   const utterances=chunks.map(t=>{const u=new Utterance(t);u.lang='ja-JP';u.rate=speed;u.volume=1;const voice=voices.find(v=>/^ja[-_]JP$/i.test(v.lang)&&v.default)||voices.find(v=>/^ja(?:[-_]|$)/i.test(v.lang));if(voice)u.voice=voice;return u;});
+   const utterances=chunks.map(t=>{const u=new Utterance(t);u.lang='ja-JP';u.rate=speed;u.volume=1;u.pitch=Math.min(1.2,Math.max(.8,Number(pitch)||1));const voice=chooseJapaneseVoice(voices,voiceURI);if(voice)u.voice=voice;return u;});
    // Track one logical output so later chunks cannot invalidate the CORE's speech token.
    track(utterances[0]);const tracked={start:utterances[0].onstart,end:utterances[0].onend,error:utterances[0].onerror};let done=false,startTimer,endTimer,index=0;
    const clear=()=>{clearTimer(startTimer);clearTimer(endTimer);};

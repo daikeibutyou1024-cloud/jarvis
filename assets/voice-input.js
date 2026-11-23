@@ -21,7 +21,7 @@ export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},
   rec=current;active=true;stopping=false;const token=++epoch;const valid=()=>rec===current&&token===epoch;
   current.lang='ja-JP';current.continuous=true;current.interimResults=true;
   onState('starting','マイクを準備しています…');
-  current.onstart=()=>{if(!valid()||stopping)return;clearTimer(endTimer);endTimer=null;lastActivityAt=now();onListening(true);onState('listening','聞いています。約3秒の無音で停止します。自動送信はしません。');arm();};
+  current.onstart=()=>{if(!valid()||stopping)return;clearTimer(endTimer);endTimer=null;lastActivityAt=now();onListening(true);onState('listening','聞いています。発話後、約3秒の無音で停止します。自動送信はしません。');timer=setTimer(()=>stop('発話を検出できませんでした。タップして再開してください。',{reason:'idle'}),30000);};
   current.onresult=event=>{
    if(!valid())return;let text='',final='';for(let i=0;i<event.results.length;i++){const part=event.results[i][0]?.transcript||'';text+=part;if(event.results[i].isFinal)final+=part;}confirmedText=final;if(!stopping)lastActivityAt=now();
    if(text){heard=text;onText(base+(base&&heard?' ':'')+heard);}
