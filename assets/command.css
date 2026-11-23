@@ -1051,3 +1051,5 @@ body[data-current-page="overview"] #status {
 #free-history-panel{overflow-wrap:anywhere}#free-history-list{padding-left:22px;max-height:60vh;overflow:auto}#free-history-list li{padding:8px;border-bottom:1px solid #2a4057}#free-core-info,#free-history-status{overflow-wrap:anywhere}
 
 #core-command-diagnostics{width:min(100%,620px);text-align:left;overflow-wrap:anywhere}#core-command-diagnostic{white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto;font-size:12px}
+
+.office-link{display:block;padding:12px 16px;color:#9cddff;text-decoration:none;border:1px solid #24516a;border-radius:9px;margin-top:10px}.office-link small{display:block;font-size:11px;color:#88a9c1;margin-top:5px}

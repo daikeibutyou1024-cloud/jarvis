@@ -1,6 +1,6 @@
 # J.A.R.V.I.S. VIRTUAL OFFICE — Preview-only implementation plan
 
-Status: design scaffold only; not deployed or operational.
+Status: Preview implementation prepared; device-local workflow implemented. Remote D1/live AI remain OFF pending verified bindings and explicit cost authorization. See [implementation and operations](VIRTUAL_OFFICE_PREVIEW.md).
 Target branch: feature/ai-business-rebuild.
 Never modify main, Production, production D1 (jarvis-calendar), secrets, or backups.
 

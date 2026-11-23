@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:office-cloud-browser": "node tests/virtual-office-live-browser.mjs",
+    "test:office-browser": "node tests/virtual-office-browser.mjs",
     "test": "node --import ./tests/no-network.js --test tests/*.test.js",
     "test:release-http": "node tests/editorial-release-rehearsal.mjs",
     "test:release-browser": "node tests/editorial-release-browser.mjs",
