@@ -1,6 +1,6 @@
 // One shared dictation controller for the orb and the text-field microphone.
 // No authentication, AI, submission, network or storage operations belong here.
-export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},onState=()=>{},onComplete=()=>{},cancelSpeech=()=>{},isHidden=()=>false,silenceMs=3000,now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
+export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},onState=()=>{},onComplete=()=>{},cancelSpeech=()=>{},isHidden=()=>false,silenceMs=3000,initialIdleMs=30000,now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
  let rec=null,active=false,stopping=false,timer=null,endTimer=null,epoch=0,base='',heard='',confirmedText='',lastActivityAt=0,stopReason='natural';
  const clear=()=>{clearTimer(timer);clearTimer(endTimer);timer=endTimer=null;};
  const finish=(message,error=false,reason=stopReason)=>{const completed={text:heard,confirmedText,lastActivityAt,reason,error};const old=rec;rec=null;active=false;stopping=false;epoch++;clear();if(old)for(const key of ['onstart','onresult','onend','onerror','onspeechstart','onspeechend'])old[key]=null;onListening(false);onState(error?'error':'idle',message);onComplete(completed);};
@@ -21,7 +21,7 @@ export function createVoiceInput({Recognition,getText,onText,onListening=()=>{},
   rec=current;active=true;stopping=false;const token=++epoch;const valid=()=>rec===current&&token===epoch;
   current.lang='ja-JP';current.continuous=true;current.interimResults=true;
   onState('starting','マイクを準備しています…');
-  current.onstart=()=>{if(!valid()||stopping)return;clearTimer(endTimer);endTimer=null;lastActivityAt=now();onListening(true);onState('listening','聞いています。発話後、約3秒の無音で停止します。自動送信はしません。');timer=setTimer(()=>stop('発話を検出できませんでした。タップして再開してください。',{reason:'idle'}),30000);};
+  current.onstart=()=>{if(!valid()||stopping)return;clearTimer(endTimer);endTimer=null;lastActivityAt=now();onListening(true);onState('listening','聞いています。発話後、約3秒の無音で停止します。自動送信はしません。');if(initialIdleMs>0)timer=setTimer(()=>stop('発話を検出できませんでした。タップして再開してください。',{reason:'idle'}),initialIdleMs);};
   current.onresult=event=>{
    if(!valid())return;let text='',final='';for(let i=0;i<event.results.length;i++){const part=event.results[i][0]?.transcript||'';text+=part;if(event.results[i].isFinal)final+=part;}confirmedText=final;if(!stopping)lastActivityAt=now();
    if(text){heard=text;onText(base+(base&&heard?' ':'')+heard);}

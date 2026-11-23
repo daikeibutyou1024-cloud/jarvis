@@ -1,6 +1,6 @@
 import {createVoiceInput} from './voice-input.js';
 // Modes share exactly one recognizer. Only an explicitly started conversation can send.
-export function createVoiceSession({Recognition,getText,onText,onListening,onState,authorize,send,speak,cancelSpeech,isBusy=()=>false,isHidden=()=>false,canConverse=()=>true,singleTurn=()=>false,turnLimit=()=>Infinity,modeLabel=null,blockedReason=()=> '実AIは費用・残高未確認のため停止中です。Previewモック回答を選択してください。',restartDelayMs=250,now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
+export function createVoiceSession({Recognition,getText,onText,onListening,onState,authorize,send,speak,cancelSpeech,isBusy=()=>false,isHidden=()=>false,canConverse=()=>true,singleTurn=()=>false,turnLimit=()=>Infinity,modeLabel=null,blockedReason=()=> '実AIは費用・残高未確認のため停止中です。Previewモック回答を選択してください。',initialIdleMs=30000,restartDelayMs=250,now=Date.now,setTimer=setTimeout,clearTimer=clearTimeout}) {
  const label=()=>modeLabel?modeLabel():singleTurn()?'Claude実AI（1回テスト）':'Previewモック';
  let mode='dictation',running=false,epoch=0,phase='idle',timer=null,lastVoiceText='',turns=0;
  const status=(state,text)=>{phase=state;onState(state,text);};
@@ -29,7 +29,7 @@ export function createVoiceSession({Recognition,getText,onText,onListening,onSta
   const remaining=Math.max(0,3000-(now()-result.lastActivityAt));
   if(remaining)timer=setTimer(dispatch,remaining);else void dispatch();
  }
- const input=createVoiceInput({Recognition,now,setTimer,clearTimer,isHidden,cancelSpeech,getText:()=>mode==='conversation'?'':getText(),
+ const input=createVoiceInput({Recognition,initialIdleMs,now,setTimer,clearTimer,isHidden,cancelSpeech,getText:()=>mode==='conversation'?'':getText(),
   onText:text=>{if(mode==='conversation')lastVoiceText=text;onText(text);},onListening,
   onState:(state,text)=>{if(mode==='dictation'){if(state==='idle'||state==='error')running=false;status(state,text);}else if(running&&['starting','listening','stopping'].includes(state)){if(state==='starting')status(state,'マイクを準備しています…');else if(state==='listening')status(state,`聞いています。約3秒の無音で確定し、${label()}へ自動送信します。`);else status(state,'発話を確定しています…');}else if(running&&state==='error')pause(text);},
   onComplete:result=>void complete(result)});

@@ -1,0 +1,9 @@
+export function initFreeHistoryUI({archive,authorize,doc=document}){
+ const $=id=>doc.getElementById(id);let before=Infinity,locked=false,epoch=0;
+ function lock(){epoch++;locked=true;before=Infinity;$('free-history-list').replaceChildren();$('free-history-status').textContent='履歴は端末内に保持しています。確認にはログインが必要です。';}
+ async function load(reset=false){if(!await authorize())return;locked=false;const token=epoch;if(reset){before=Infinity;$('free-history-list').replaceChildren();}const rows=await archive.page({before,limit:50});if(token!==epoch||locked)return;for(const r of rows){const item=doc.createElement('li'),heading=doc.createElement('p'),body=doc.createElement('p');heading.textContent=new Date(r.createdAt).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})+' JST'+' / '+r.user;body.textContent=r.assistant;item.append(heading,body);$('free-history-list').append(item);}if(rows.length)before=rows.at(-1).seq;$('free-history-status').textContent=archive.warning||`${rows.length}往復を読み込みました。古い記録は削除しません。`;}
+ $('free-history-load').onclick=()=>void load(true).catch(e=>$('free-history-status').textContent=e.message);$('free-history-older').onclick=()=>void load().catch(e=>$('free-history-status').textContent=e.message);
+ $('free-history-export').onclick=async()=>{try{if(!await authorize())return;const token=epoch,rows=await archive.all();if(token!==epoch)return;const url=URL.createObjectURL(new Blob([JSON.stringify({schema:'jarvis-free-dialogue-v1',exportedAt:Date.now(),complete:!archive.warning,notice:archive.warning,turns:rows},null,2)],{type:'application/json'})),a=doc.createElement('a');a.href=url;a.download='jarvis-free-conversation.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){$('free-history-status').textContent='履歴を書き出せません。既存記録は削除しません。';}};
+ $('free-history-lock').onclick=()=>$('logout').click();
+ return {lock,saved:warning=>{$('free-history-status').textContent=warning||'端末内の履歴に追加しました。古い会話も履歴一覧で確認できます。';}};
+}
